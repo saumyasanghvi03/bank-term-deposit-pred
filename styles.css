@@ -1,0 +1,121 @@
+/* style.css */
+
+/* --- Root Variables for Theming (Light & Dark Mode) --- */
+:root {
+    --primary-color-light: #0068c9;
+    --background-color-light: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    --text-color-light: #262730;
+    --card-background-light: rgba(255, 255, 255, 0.7);
+    --sidebar-background-light: rgba(255, 255, 255, 0.5);
+
+    --primary-color-dark: #2196f3;
+    --background-color-dark: linear-gradient(135deg, #232526 0%, #414345 100%);
+    --text-color-dark: #FAFAFA;
+    --card-background-dark: rgba(40, 40, 40, 0.7);
+    --sidebar-background-dark: rgba(30, 30, 30, 0.5);
+}
+
+/* --- Base Body Styling --- */
+body {
+    font-family: 'Poppins', sans-serif; /* A modern, clean font */
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* --- Theme Classes to be applied by Streamlit --- */
+.light-mode {
+    background: var(--background-color-light);
+    color: var(--text-color-light);
+}
+
+.dark-mode {
+    background: var(--background-color-dark);
+    color: var(--text-color-dark);
+}
+
+/* --- Subtle Fade-in Animation for the Main Container --- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.main > div {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* --- Custom Streamlit Component Styling --- */
+
+/* Sidebar with Frosted Glass Effect */
+[data-testid="stSidebar"] {
+    backdrop-filter: blur(10px);
+    transition: background-color 0.3s;
+}
+.light-mode [data-testid="stSidebar"] {
+    background-color: var(--sidebar-background-light);
+}
+.dark-mode [data-testid="stSidebar"] {
+    background-color: var(--sidebar-background-dark);
+}
+
+/* Modern, Rounded Buttons with Hover Effect */
+.stButton>button {
+    border-radius: 20px;
+    border: 1px solid var(--primary-color-light);
+    background-color: var(--primary-color-light);
+    color: white;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.stButton>button:hover {
+    transform: scale(1.05);
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+.dark-mode .stButton>button {
+    border-color: var(--primary-color-dark);
+    background-color: var(--primary-color-dark);
+}
+.dark-mode .stButton>button:hover {
+    background-color: #1976d2;
+    border-color: #1976d2;
+}
+
+/* Metric Cards with Frosted Glass Effect */
+[data-testid="stMetric"] {
+    border-radius: 10px;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: background-color 0.3s;
+}
+.light-mode [data-testid="stMetric"] {
+    background-color: var(--card-background-light);
+}
+.dark-mode [data-testid="stMetric"] {
+    background-color: var(--card-background-dark);
+}
+
+/* Custom Offer Cards for Diwali Promotions */
+.offer-card {
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    backdrop-filter: blur(5px);
+    border: 1px solid #FFC300;
+    transition: transform 0.2s;
+}
+.offer-card:hover {
+    transform: translateY(-5px);
+}
+.light-mode .offer-card {
+    background-color: rgba(255, 249, 230, 0.7);
+}
+.dark-mode .offer-card {
+    background-color: rgba(60, 50, 20, 0.7);
+}
+
+/* Styling for Expanders */
+.stExpander {
+    border-radius: 10px;
+    border: none;
+}
