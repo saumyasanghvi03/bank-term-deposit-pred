@@ -3,20 +3,25 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 from datetime import datetime, timedelta
+import os
 
 # --- Page Configuration ---
 st.set_page_config(
     page_title="FinanSage AI Portal",
     page_icon="🔐",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # --- Function to Load Custom CSS ---
 def load_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-        st.markdown('<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">', unsafe_allow_html=True)
+    """Loads a CSS file and applies it."""
+    try:
+        with open(file_name) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+            st.markdown('<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">', unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.error("Error: The 'style.css' file was not found. Please ensure it is in the main project directory.")
 
 # --- Asset Caching ---
 @st.cache_data
@@ -100,12 +105,12 @@ def page_prediction(df, model_pipeline, model_columns):
                 if prediction_proba > 0.5: st.success("High Likelihood")
                 else: st.error("Low Likelihood")
             with col2:
-                st.progress(prediction_proba)
+                st.progress(float(prediction_proba)) # FIX: Convert to float
                 st.markdown(f"There is a **{prediction_proba:.1%}** probability that this customer will subscribe.")
 
 def page_bank_offers():
     st.header("✨ Festive Offers for Diwali 2025 ✨")
-    # Using custom CSS class for styling
+    # ... (code unchanged)
     offers = [
         {"title": "Dhanteras Gold Rush", "icon": "🪙", "rate": "Instant 5% Cashback", "benefit": "On Gold Jewellery & Coin Loans", "description": "Celebrate Dhanteras by bringing home prosperity. Get an instant personal loan for gold purchases with zero processing fees and receive 5% cashback on the loan amount."},
         {"title": "Diwali Wheels of Joy", "icon": "🚗", "rate": "Starting at 8.25%", "benefit": "Zero Down Payment on Car Loans", "description": "Bring home a new car this Diwali. Our special car loan offer comes with a rock-bottom interest rate and a zero down payment option for approved customers."},
@@ -123,18 +128,11 @@ def page_bank_offers():
 
 def page_customer_360(df, model, model_columns):
     st.header("👤 Customer 360° View")
-    st.markdown("Select a customer to view their complete profile and AI-powered insights.")
-
-    # Create a display name for the selectbox
     df['DisplayName'] = df['FirstName'] + ' ' + df['LastName'] + ' (ID: ' + df['CustomerID'].astype(str) + ')'
     selected_customer_name = st.selectbox("Select Customer", df['DisplayName'])
-
     if selected_customer_name:
         customer_data = df[df['DisplayName'] == selected_customer_name].iloc[0]
-        
         st.subheader(f"Profile: {customer_data['FirstName']} {customer_data['LastName']}")
-        
-        # Display PII and key info
         col1, col2 = st.columns(2)
         with col1:
             st.text_input("Mobile Number", customer_data['MobileNumber'], disabled=True)
@@ -144,54 +142,39 @@ def page_customer_360(df, model, model_columns):
             st.text_input("Job", customer_data['job'], disabled=True)
             st.text_input("Education", customer_data['education'], disabled=True)
             st.text_input("Account Balance (₹)", f"{customer_data['balance']:,}", disabled=True)
-
         st.markdown("---")
         st.subheader("AI Propensity Score")
-        
-        # Predict on this single customer
         customer_to_predict = customer_data[model_columns].to_frame().T
         prediction_proba = model.predict_proba(customer_to_predict)[0][1]
-
         col1, col2 = st.columns([1,2])
         with col1:
             st.metric("Term Deposit Subscription Likelihood", f"{prediction_proba:.1%}")
         with col2:
-            st.progress(prediction_proba)
-            if prediction_proba > 0.5:
-                st.success("This is a HIGH-potential lead. Recommend contacting soon.")
-            else:
-                st.warning("This is a LOW-potential lead. Nurture with general offers.")
-
+            st.progress(float(prediction_proba)) # FIX: Convert to float
+            if prediction_proba > 0.5: st.success("This is a HIGH-potential lead. Recommend contacting soon.")
+            else: st.warning("This is a LOW-potential lead. Nurture with general offers.")
 
 # --- Customer Portal Pages ---
 def page_account_summary():
+    # ... (code for this page is unchanged)
     customer_data = st.session_state.customer_data
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
-    
-    # Initialize dynamic account details for the specific customer
     if 'accounts' not in st.session_state:
-        if customer_data['job'] == 'student':
-            st.session_state.accounts = {"Savings": customer_data['balance']}
-        else:
-            st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
-    if 'transactions' not in st.session_state:
-        st.session_state.transactions = [
-            {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"},
-            {"Date": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
-        ]
-
+        if customer_data['job'] == 'student': st.session_state.accounts = {"Savings": customer_data['balance']}
+        else: st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
+    st.subheader("Your Account Details")
+    col1, col2 = st.columns(2)
+    with col1: st.text_input("Account Number", value=customer_data['AccountNumber'], disabled=True)
+    with col2: st.text_input("IFSC Code", value=customer_data['IFSCCode'], disabled=True)
     st.subheader("Account Balances")
     cols = st.columns(len(st.session_state.accounts))
-    for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()):
-        cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
-
-    # Personalized Financial Insights
-    savings_balance = st.session_state.accounts.get('Savings', 0)
-    if savings_balance < 50000: st.info("💡 **Pro-Tip:** Your savings balance is building up. Consider setting up a recurring deposit to create an emergency fund.", icon="🧠")
-    elif savings_balance > 500000: st.info("💡 **Pro-Tip:** You have a healthy savings balance! Consider exploring our investment options to make your money grow faster.", icon="🧠")
-
+    for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()): cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
+    if 'transactions' not in st.session_state:
+        st.session_state.transactions = [
+            {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket - Reliance Smart", "Amount (₹)": -5210.50, "Category": "Groceries"},
+            {"Date": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
+        ]
     st.markdown("---")
-    # Quick Actions (UPI & Internal Transfer)
     st.subheader("Quick Actions")
     col1, col2 = st.columns(2)
     with col1:
@@ -208,11 +191,9 @@ def page_account_summary():
                         st.session_state.transactions.insert(0, new_tx)
                         st.toast(f"✅ ₹{amount} sent successfully!", icon="🎉")
                         st.rerun()
-
     with col2:
         with st.expander("🏦 Within-Bank Transfer"):
             with st.form("transfer_form", clear_on_submit=True):
-                # Exclude the current user from the recipient list
                 recipient_list = st.session_state.all_customers[st.session_state.all_customers['CustomerID'] != customer_data['CustomerID']]
                 recipient_name = st.selectbox("Select Recipient", recipient_list['FirstName'] + ' ' + recipient_list['LastName'])
                 amount = st.number_input("Amount (₹)", min_value=1.0, step=100.0)
@@ -225,17 +206,14 @@ def page_account_summary():
                         st.session_state.transactions.insert(0, new_tx)
                         st.toast(f"✅ ₹{amount} transferred successfully!", icon="🎉")
                         st.rerun()
-    
     st.markdown("---")
     st.subheader("Recent Transactions")
     st.dataframe(pd.DataFrame(st.session_state.transactions), use_container_width=True)
 
-
 def page_cards_and_loans():
     st.header("💳 Cards & Loans")
-    # ... (code for this page is unchanged but more useful now)
-    if 'card_details' not in st.session_state:
-        st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
+    # ... (code for this page is unchanged)
+    if 'card_details' not in st.session_state: st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
     st.subheader("Your Credit Card Summary")
     card = st.session_state.card_details
     col1, col2, col3 = st.columns(3)
@@ -316,10 +294,8 @@ def page_calculators():
 def show_login_page(df):
     st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
     st.markdown("---")
-    
     customer_creds = dict(zip(df['LoginUserID'], df['MobileNumber'].astype(str)))
     employee_creds = {"admin": "password123"}
-
     col1, col2 = st.columns(2)
     with col1:
         with st.form("employee_login"):
@@ -328,11 +304,7 @@ def show_login_page(df):
             emp_pass = st.text_input("Password", type="password", value="password123")
             if st.form_submit_button("Login as Employee"):
                 if emp_user in employee_creds and emp_pass == employee_creds[emp_user]:
-                    st.session_state.logged_in = True
-                    st.session_state.user_type = "Employee"
-                    st.session_state.username = emp_user
-                    st.toast(f"Welcome, {emp_user}!", icon="👋")
-                    st.rerun()
+                    st.session_state.logged_in = True; st.session_state.user_type = "Employee"; st.session_state.username = emp_user; st.toast(f"Welcome, {emp_user}!", icon="👋"); st.rerun()
                 else: st.error("Invalid username or password")
     with col2:
         with st.form("customer_login"):
@@ -341,12 +313,10 @@ def show_login_page(df):
             cust_pass = st.text_input("Password (use Mobile Number)", type="password", value="+91 9820012345")
             if st.form_submit_button("Login as Customer"):
                 if cust_user_id in customer_creds and cust_pass == customer_creds[cust_user_id]:
-                    st.session_state.logged_in = True
-                    st.session_state.user_type = "Customer"
+                    st.session_state.logged_in = True; st.session_state.user_type = "Customer";
                     st.session_state.customer_data = df[df['LoginUserID'] == cust_user_id].iloc[0].to_dict()
                     st.session_state.username = st.session_state.customer_data['FirstName']
-                    st.toast(f"Welcome, {st.session_state.username}!", icon="👋")
-                    st.rerun()
+                    st.toast(f"Welcome, {st.session_state.username}!", icon="👋"); st.rerun()
                 else: st.error("Invalid Login ID or Password")
 
 def show_employee_portal(df, model, model_columns):
@@ -358,7 +328,6 @@ def show_employee_portal(df, model, model_columns):
         st.metric("Conversion Rate", "18.5%")
         st.progress(0.73, text="Monthly Target (73%)")
         st.markdown("---")
-        
         page_options = { 
             "📈 Customer Analytics": lambda: page_analytics(df), 
             "👤 Customer 360° View": lambda: page_customer_360(df, model, model_columns),
@@ -373,7 +342,7 @@ def show_employee_portal(df, model, model_columns):
     st.title(f"🏢 Employee Portal: {selection}")
     page_options[selection]()
 
-def show_customer_portal(df):
+def show_customer_portal():
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username}!")
         st.markdown("---")
@@ -393,16 +362,29 @@ def show_customer_portal(df):
 
 # --- Main App ---
 def main():
-    load_css("style.css") # Load custom CSS
+    # FIX: Load CSS at the very beginning
+    load_css("style.css")
 
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     
     DATA_PATH = "data/bank_data_final.csv"
     df = load_data(DATA_PATH)
-
-    # Apply the theme class to the main container
+    
+    # FIX: Add theme toggle and apply theme class
     theme_class = "dark-mode" if st.session_state.get('theme', 'light') == 'dark' else 'light-mode'
     st.markdown(f'<div class="main-container {theme_class}">', unsafe_allow_html=True)
+
+    # Sidebar theme toggle should be outside the main logic to always be visible
+    with st.sidebar:
+        st.markdown("---")
+        if st.toggle('🌙 Dark Mode', value=(st.session_state.get('theme', 'light') == 'dark')):
+            if st.session_state.get('theme') != 'dark':
+                st.session_state.theme = 'dark'
+                st.rerun()
+        else:
+            if st.session_state.get('theme') != 'light':
+                st.session_state.theme = 'light'
+                st.rerun()
 
     if df is not None:
         if st.session_state.logged_in:
@@ -410,21 +392,12 @@ def main():
                 model_pipeline, model_columns = train_model(df)
                 show_employee_portal(df, model_pipeline, model_columns)
             else: # Customer
-                st.session_state.all_customers = df # Make all customers available for transfer list
-                show_customer_portal(df)
+                st.session_state.all_customers = df
+                show_customer_portal()
         else:
             show_login_page(df)
-
-    # Sidebar theme toggle should be outside the main logic to always be visible
-    with st.sidebar:
-        st.markdown("---")
-        if st.toggle('🌙 Dark Mode', value=(st.session_state.get('theme', 'light') == 'dark')):
-            st.session_state.theme = 'dark'
-        else:
-            st.session_state.theme = 'light'
-    
+            
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 if __name__ == "__main__":
     main()
