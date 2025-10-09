@@ -67,7 +67,7 @@ class FinanSageApp:
     # --- Employee Portal Pages ---
     def page_ai_copilot(self):
         st.header("🤖 AI Co-Pilot")
-        st.markdown(f"**Friday, October 10, 2025 | 1:25 AM IST**")
+        st.markdown(f"**Friday, October 10, 2025 | 1:27 AM IST**")
         st.info("Here are your AI-powered priorities for today to maximize efficiency and results.", icon="🚀")
         model = st.session_state.model; model_columns = st.session_state.model_columns
         unsubscribed_df = self.df[self.df['y'] == 'no'].copy()
@@ -112,33 +112,29 @@ class FinanSageApp:
         customer_data = st.session_state.customer_data
         st.header(f"Welcome Back, {customer_data['FirstName']}!")
 
-        # Display Contextual Mode Card
         current_mode = st.session_state.get('current_mode', 'normal')
-        if current_mode == 'commute':
-            st.subheader("🚗 Your Morning Commute Briefing")
-            with st.container(border=True):
-                yesterday_spend = sum(t['Amount (₹)'] for t in st.session_state.transactions if t['Amount (₹)'] < 0 and 'Yesterday' in t['Date'])
-                total_balance = sum(st.session_state.accounts.values())
-                col1, col2 = st.columns(2)
-                col1.metric("Total Account Balance", f"₹{total_balance:,.0f}")
-                col2.metric("Yesterday's Spend", f"₹{abs(yesterday_spend):,.0f}")
-                st.info("**Tip of the Day:** Even small, consistent investments can lead to significant wealth.", icon="💡")
-            st.subheader("🎧 Listen on the Go")
-            audio_briefings = [{"icon": "📈", "title": "Daily Market Update", "desc": "A 5-min summary of yesterday's market performance."}, {"icon": "💰", "title": "Building Your First Crore", "desc": "Quick tips on how to plan your SIPs for long-term goals."}]
-            for item in audio_briefings:
-                with st.container(border=True): st.markdown(f"**{item['icon']} {item['title']}**\n\n{item['desc']}")
-        
-        elif current_mode == 'lunch':
-            st.subheader("🥗 Your Lunch Break Roundup")
-            with st.container(border=True):
-                st.write("**1-Minute Challenge:** Can you name the 3 main types of mutual funds?")
-                st.info("**Quick Tip:** Paying your credit card bill in full every month is the best way to boost your credit score.", icon="💡")
-        
-        elif current_mode == 'evening':
-            st.subheader("🌆 Your Evening Unwind")
-            with st.container(border=True):
-                st.write("A great time to plan for tomorrow. Have you checked your Algo Bot goals recently?")
-                st.success("**Featured Read:** [Article] 5 Common Mistakes to Avoid When Investing", icon="📖")
+        mode_details = {
+            'commute': {"icon": "🚗", "title": "Your Morning Dash"},
+            'lunch': {"icon": "🥗", "title": "Your Lunch Money Roundup"},
+            'evening': {"icon": "🌆", "title": "Your Evening Planner"},
+            'zen': {"icon": "🧘", "title": "Your Zen Finance View"}
+        }
+
+        if current_mode in mode_details:
+            st.subheader(f"{mode_details[current_mode]['icon']} {mode_details[current_mode]['title']}")
+            if current_mode == 'commute':
+                with st.container(border=True):
+                    total_balance = sum(st.session_state.accounts.values())
+                    st.metric("Total Account Balance", f"₹{total_balance:,.0f}")
+                    st.info("**Tip of the Day:** Even small, consistent investments can lead to significant wealth.", icon="💡")
+                st.subheader("🎧 Listen on the Go")
+                audio_briefings = [{"icon": "📈", "title": "Daily Market Update"}, {"icon": "💰", "title": "Building Your First Crore"}]
+                for item in audio_briefings:
+                    with st.container(border=True): st.markdown(f"**{item['icon']} {item['title']}**")
+            elif current_mode == 'lunch':
+                with st.container(border=True): st.write("**1-Minute Challenge:** Can you name the 3 main types of mutual funds?"); st.info("**Quick Tip:** Paying your credit card bill in full is the best way to boost your credit score.", icon="💡")
+            elif current_mode == 'evening':
+                with st.container(border=True): st.write("A great time to plan for tomorrow. Have you checked your Algo Bot goals?"); st.success("**Featured Read:** [Article] 5 Common Mistakes to Avoid When Investing", icon="📖")
         
         st.subheader("Your Account Details")
         col1, col2 = st.columns(2)
@@ -147,23 +143,18 @@ class FinanSageApp:
         
         st.subheader("Account Balances")
         if current_mode == 'zen':
-            st.info("🧘 Zen Mode is active. Balances are hidden to promote financial peace of mind.", icon="✨")
+            st.info("🧘 Balances are hidden. Quick actions are disabled to promote a stress-free experience.", icon="✨")
             cols = st.columns(len(st.session_state.accounts)); affirmations = ["You're on track!", "Your savings are growing."]
             for i, acc_name in enumerate(st.session_state.accounts.keys()): cols[i].metric(acc_name, affirmations[i % len(affirmations)])
         else:
             cols = st.columns(len(st.session_state.accounts))
             for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()): cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
-        
-        st.markdown("---")
-        if current_mode == 'zen':
-            st.warning("Quick actions are disabled in Zen Mode. You can turn off Zen Mode in the sidebar.", icon="🧘")
-        else:
+            st.markdown("---")
             st.subheader("Quick Actions")
             col1, col2 = st.columns(2)
             with col1:
                 with st.expander("📲 Send Money via UPI"):
                     with st.form("upi_form", clear_on_submit=True):
-                        # ... UPI form logic is unchanged
                         recipient_upi_id = st.text_input("Recipient UPI ID", "merchant@okbank"); amount = st.number_input("Amount (₹)", min_value=1.0, step=10.0)
                         debit_account = st.selectbox("From Account", list(st.session_state.accounts.keys()), key="upi_debit")
                         use_credit = st.checkbox("Pay using your UPI Credit Line")
@@ -174,17 +165,16 @@ class FinanSageApp:
                             if use_credit:
                                 if amount > available_credit: st.error("Insufficient credit limit.")
                                 else:
-                                    st.session_state.card_details['outstanding'] += amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI on Credit to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Credit Spends"}
+                                    st.session_state.card_details['outstanding'] += amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI on Credit to {recipient_upi_id}", "Amount (₹)": -amount}
                                     st.session_state.transactions.insert(0, new_tx); st.toast(f"✅ ₹{amount} paid to {recipient_upi_id} on credit!", icon="💳"); st.rerun()
                             else:
                                 if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
                                 else:
-                                    st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Payments"}
+                                    st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount}
                                     st.session_state.transactions.insert(0, new_tx); st.toast(f"✅ ₹{amount} sent to {recipient_upi_id}!", icon="🎉"); st.rerun()
             with col2:
                 with st.expander("🏦 Within-Bank Transfer"):
                     with st.form("transfer_form", clear_on_submit=True):
-                        # ... Transfer form logic is unchanged
                         recipient_list = st.session_state.all_customers[st.session_state.all_customers['CustomerID'] != customer_data['CustomerID']]
                         recipient_name = st.selectbox("Select Recipient", recipient_list['FirstName'] + ' ' + recipient_list['LastName'])
                         amount = st.number_input("Amount (₹)", min_value=1.0, step=100.0)
@@ -192,14 +182,13 @@ class FinanSageApp:
                         if st.form_submit_button("Transfer Money"):
                             if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
                             else:
-                                st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount, "Category": "Transfers"}
+                                st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount}
                                 st.session_state.transactions.insert(0, new_tx); st.toast(f"✅ ₹{amount} transferred to {recipient_name}!", icon="🎉"); st.rerun()
         st.markdown("---")
         st.subheader("Recent Transactions")
         st.dataframe(pd.DataFrame(st.session_state.transactions), use_container_width=True)
 
     def page_algo_bots(self):
-        # ... (code is unchanged)
         st.header("🤖 Algo Savings & Investment Bots")
         st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
         st.subheader("My Bot Portfolio")
@@ -244,15 +233,34 @@ class FinanSageApp:
             with col2:
                 if st.button("🚀 Start this SIP Plan", use_container_width=True):
                     new_goal = {"name": goal, "target": target_amount, "sip": monthly_sip, "invested": 0, "value": 0}
-                    st.session_state.goals.append(new_goal)
-                    st.success(f"Your SIP for '{goal}' is now active!"); st.balloons(); st.rerun()
+                    st.session_state.goals.append(new_goal); st.success(f"Your SIP for '{goal}' is now active!"); st.balloons(); st.rerun()
     
-    # All other pages are unchanged
-    def page_cards_and_loans(self): st.header("💳 Cards & Loans"); st.info("This feature is coming soon!")
-    def page_investments(self): st.header("💹 Investment Hub"); st.info("This feature is coming soon!")
-    def page_calculators(self): st.header("🧮 Financial Calculators"); st.info("This feature is coming soon!")
-    def page_financial_health(self): st.header("❤️ Financial Health"); st.info("This feature is coming soon!")
-
+    def page_financial_health(self):
+        st.header("❤️ Automatic Financial Health Analysis")
+        st.markdown("Our AI automatically analyzes your profile to generate your financial health score and personalized recommendations.")
+        customer_data = st.session_state.customer_data; score = 0; pro_tips = []
+        balance = sum(st.session_state.accounts.values())
+        if balance > 500000: score += 40; pro_tips.append("Your savings are excellent! Consider moving surplus cash to investments for better growth.")
+        elif balance > 200000: score += 30; pro_tips.append("You have a good savings base. It's a great time to start a goal-based SIP.")
+        else: score += 10; pro_tips.append("Your top priority should be to build a consistent saving habit. Start with a small recurring deposit.")
+        if customer_data['loan'] == 'no' and customer_data['housing'] == 'no': score += 30
+        else: score += 15; pro_tips.append("You are managing your loans well. Ensure you are paying your EMIs on time to maintain a good credit score.")
+        if any(goal['invested'] > 0 for goal in st.session_state.goals) or st.session_state.bots['round_up_pot'] > 0: score += 30
+        else: score += 10; pro_tips.append("You have not yet started investing. Activate our 'Algo Savings' bots to begin your investment journey with small, automated steps.")
+        st.subheader("Your Financial Health Score")
+        col1, col2 = st.columns([1,2])
+        with col1:
+            st.metric("Score", f"{score:.0f} / 100")
+            if score > 80: st.success("Status: Excellent")
+            elif score > 50: st.warning("Status: Good")
+            else: st.error("Status: Needs Attention")
+        with col2:
+            if score > 80: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #28a745; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+            elif score > 50: st.markdown(f'<div style="width: 100%; background-color: #ffc107; text-align: right; color: black; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+            else: st.markdown(f'<div style="width: 100%; background-color: #dc3545; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        st.markdown("---")
+        st.subheader("💡 AI-Powered Pro-Tips")
+        for tip in pro_tips[:3]: st.info(tip, icon="🧠")
 
     # --- Centralized Session State Initialization ---
     def initialize_customer_session(self, customer_data):
@@ -270,8 +278,9 @@ class FinanSageApp:
         st.session_state.goals = []
         st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
         st.session_state.notifications = [f"Welcome back, {customer_data['FirstName']}! Your last login was yesterday."]
+        st.session_state.last_known_mode = None # For auto mode-switch notifications
     
-    # --- Portal and Login Logic ---
+    # --- Login & Portal Logic ---
     def show_login_page(self):
         st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
         login_tab, create_account_tab = st.tabs(["Login to Your Account", "Open a New Account"])
@@ -335,16 +344,22 @@ class FinanSageApp:
 
     def show_customer_portal(self):
         st.title(f"👤 Customer Portal")
-        
-        # --- Automatic Mode Detection ---
         ist_time = datetime.now(timezone(timedelta(hours=5, minutes=30)))
         current_hour = ist_time.hour
-        if 7 <= current_hour < 12: st.session_state.current_mode = 'commute'
-        elif 12 <= current_hour < 15: st.session_state.current_mode = 'lunch'
-        elif 17 <= current_hour < 20: st.session_state.current_mode = 'evening'
-        elif 22 <= current_hour or current_hour < 7: st.session_state.current_mode = 'zen'
-        else: st.session_state.current_mode = 'normal'
         
+        mode_names = {'commute': "🚗 Morning Dash", 'lunch': "🥗 Lunch Money", 'evening': "🌆 Evening Planner", 'zen': "🧘 Zen Finance", 'normal': "Normal Mode"}
+        
+        if 7 <= current_hour < 12: new_mode = 'commute'
+        elif 12 <= current_hour < 15: new_mode = 'lunch'
+        elif 17 <= current_hour < 20: new_mode = 'evening'
+        elif 22 <= current_hour or current_hour < 7: new_mode = 'zen'
+        else: new_mode = 'normal'
+
+        if st.session_state.last_known_mode != new_mode:
+            st.toast(f"Switched to {mode_names[new_mode]}!", icon=mode_names[new_mode][0])
+            st.session_state.last_known_mode = new_mode
+        st.session_state.current_mode = new_mode
+
         with st.sidebar:
             st.markdown(f"### Welcome, {st.session_state.username}!")
             st.markdown("---")
@@ -357,12 +372,12 @@ class FinanSageApp:
             selection = st.radio("Go to", ["🏠 Account Summary", "🤖 Algo Savings", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health"])
             st.markdown("---")
             st.session_state.zen_mode = (st.session_state.current_mode == 'zen')
-            if st.toggle('🧘 Zen Mode', value=st.session_state.zen_mode, help="Hides balances for a stress-free experience."): st.session_state.zen_mode = True
-            else: st.session_state.zen_mode = False
+            if st.toggle('🧘 Zen Mode', value=st.session_state.zen_mode, help="Hide balances for a stress-free experience."): st.session_state.current_mode = 'zen'
             st.markdown("---")
             if st.button("Logout"):
                 for key in list(st.session_state.keys()): del st.session_state[key]
                 st.rerun()
+                
         if selection == "🏠 Account Summary": self.page_account_summary()
         elif selection == "🤖 Algo Savings": self.page_algo_bots()
         elif selection == "💳 Cards & Loans": self.page_cards_and_loans()
@@ -370,7 +385,6 @@ class FinanSageApp:
         elif selection == "🧮 Financial Calculators": self.page_calculators()
         elif selection == "❤️ Financial Health": self.page_financial_health()
 
-    # --- Main App Execution Logic ---
     def run(self):
         load_css("style.css")
         theme_class = "dark-mode" if st.session_state.get('theme', 'light') == 'dark' else 'light-mode'
@@ -381,23 +395,26 @@ class FinanSageApp:
                 if st.session_state.get('theme') != 'dark': st.session_state.theme = 'dark'; st.rerun()
             else:
                 if st.session_state.get('theme') != 'light': st.session_state.theme = 'light'; st.rerun()
-            # Live IST Clock
             st.markdown("---")
-            st.sidebar.markdown(f"**{datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%A, %b %d | %I:%M:%S %p IST')}**")
+            time_placeholder = st.empty()
 
         if self.df is not None:
             if st.session_state.logged_in:
                 if st.session_state.user_type == "Employee":
                     model_pipeline, model_columns = train_model(self.df)
-                    st.session_state.model = model_pipeline
-                    st.session_state.model_columns = model_columns
+                    st.session_state.model = model_pipeline; st.session_state.model_columns = model_columns
                     self.show_employee_portal()
-                else: # Customer
+                else:
                     st.session_state.all_customers = self.df
                     self.show_customer_portal()
             else:
                 self.show_login_page()
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        while True:
+            ist_time_str = datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%a, %b %d | %I:%M:%S %p IST')
+            time_placeholder.markdown(f"**{ist_time_str}**")
+            time.sleep(1)
 
 if __name__ == "__main__":
     DATA_PATH = "data/bank_data_final.csv"
