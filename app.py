@@ -17,6 +17,7 @@ st.set_page_config(
 # --- Function to Load Custom CSS ---
 @st.cache_data
 def load_css(file_name):
+    """Loads a CSS file from the same directory as the script."""
     try:
         with open(file_name) as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
@@ -27,6 +28,7 @@ def load_css(file_name):
 # --- Asset Caching ---
 @st.cache_data
 def load_data(path):
+    # ... (code unchanged)
     try:
         return pd.read_csv(path)
     except FileNotFoundError:
@@ -38,6 +40,7 @@ def load_data(path):
 
 @st.cache_resource
 def train_model(df):
+    # ... (code unchanged)
     from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
@@ -54,8 +57,7 @@ def train_model(df):
     pipeline.fit(X, y)
     return pipeline, X.columns
 
-# --- All Page Functions (Defined Globally) ---
-
+# --- Employee Portal Pages ---
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
     st.subheader("Key Performance Indicators (KPIs)")
@@ -76,25 +78,21 @@ def page_analytics(df):
 def page_employee_bots(df):
     st.header("🤖 AI Bot Console")
     st.markdown("Activate intelligent bots to automate and enhance your workflow.")
-    
     col1, col2 = st.columns(2)
     with col1:
         with st.container(border=True):
             st.subheader("🔔 At-Risk Customer Bot")
             st.write("This bot identifies customers whose balance has dropped significantly, flagging them as potential churn risks.")
             if st.button("Scan for At-Risk Customers"):
-                # Simulate finding at-risk customers (e.g., low balance)
                 at_risk_df = df[df['balance'] < 10000].head(3)
                 st.error("High-Priority Alerts Found!")
                 for _, row in at_risk_df.iterrows():
                     st.warning(f"**{row['FirstName']} {row['LastName']}** (Balance: ₹{row['balance']:,}) - Balance is critically low. Recommend outreach.", icon="🚨")
-
     with col2:
         with st.container(border=True):
             st.subheader("🎯 Daily Lead Bot")
             st.write("Generates a fresh, prioritized list of the top 5 customers to contact today for term deposit campaigns.")
             if st.button("Generate Today's Leads"):
-                # This uses the main model passed via session state
                 model = st.session_state.model
                 model_columns = st.session_state.model_columns
                 unsubscribed_df = df[df['y'] == 'no'].copy()
@@ -102,11 +100,36 @@ def page_employee_bots(df):
                 predictions = model.predict_proba(leads_to_predict)[:, 1]
                 unsubscribed_df['Subscription Likelihood'] = predictions
                 top_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False).head(5)
-                
                 st.success("Today's Top 5 Leads Generated!")
                 for _, row in top_leads.iterrows():
                     st.info(f"**{row['FirstName']} {row['LastName']}** (Phone: {row['MobileNumber']}) - Likelihood: **{row['Subscription Likelihood']:.1%}**", icon="📞")
 
+def page_customer_360(df, model, model_columns):
+    st.header("👤 Customer 360° View")
+    df['DisplayName'] = df['FirstName'] + ' ' + df['LastName'] + ' (ID: ' + df['CustomerID'].astype(str) + ')'
+    selected_customer_name = st.selectbox("Select Customer", df['DisplayName'])
+    if selected_customer_name:
+        customer_data = df[df['DisplayName'] == selected_customer_name].iloc[0]
+        st.subheader(f"Profile: {customer_data['FirstName']} {customer_data['LastName']}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.text_input("Mobile Number", customer_data['MobileNumber'], disabled=True)
+            st.text_input("Email", customer_data['Email'], disabled=True)
+        with col2:
+            st.text_input("Job", customer_data['job'], disabled=True)
+            st.text_input("Account Balance (₹)", f"{customer_data['balance']:,}", disabled=True)
+        st.markdown("---")
+        st.subheader("AI Propensity Score")
+        customer_to_predict = customer_data[model_columns].to_frame().T
+        prediction_proba = model.predict_proba(customer_to_predict)[0][1]
+        col1, col2 = st.columns([1,2])
+        with col1: st.metric("Term Deposit Subscription Likelihood", f"{prediction_proba:.1%}")
+        with col2:
+            st.progress(float(prediction_proba))
+            if prediction_proba > 0.5: st.success("HIGH-potential lead. Recommend contacting soon.")
+            else: st.warning("LOW-potential lead. Nurture with general offers.")
+
+# --- Customer Portal Pages ---
 def page_account_summary():
     customer_data = st.session_state.customer_data
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
@@ -163,10 +186,10 @@ def page_algo_bots():
     st.header("🤖 Algo Savings & Investment Bots")
     st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
     
+    # ** FIX: Initialize all required bot states correctly **
     if 'bots' not in st.session_state:
-        st.session_state.bots = {"round_up": False, "round_up_pot": 0.0}
+        st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0}
 
-    # Bot 1: Round-Up Savings
     with st.container(border=True):
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -186,10 +209,9 @@ def page_algo_bots():
                     st.session_state.bots["round_up"] = True; st.toast("Round-Up Bot activated!", icon="🚀"); st.rerun()
         with col2:
             st.metric("Your Round-Up Pot", f"₹{st.session_state.bots['round_up_pot']:.2f}")
-            if is_active: st.success("✅ ACTIVE")
+            if st.session_state.bots["round_up"]: st.success("✅ ACTIVE")
             else: st.info("INACTIVE")
-
-    # Bot 2: Goal-Based SIP
+    
     with st.container(border=True):
         st.subheader("🎯 Goal-Based SIP Bot")
         st.write("Define your financial goals, and this bot will calculate the required SIP and help you start.")
@@ -206,19 +228,11 @@ def page_algo_bots():
             if st.button("🚀 Start this SIP Plan", use_container_width=True):
                 st.success(f"Congratulations! Your SIP of ₹{monthly_sip:,.0f}/month for '{goal}' has been simulated.")
                 st.balloons()
-                
-# (Other customer pages like investments, calculators, health check are unchanged and can be copied from the previous version)
-def page_cards_and_loans(): st.header("💳 Cards & Loans"); st.info("This feature is coming soon!")
-def page_investments(): st.header("💹 Investment Hub"); st.info("This feature is coming soon!")
-def page_calculators(): st.header("🧮 Financial Calculators"); st.info("This feature is coming soon!")
-def page_health_check(): st.header("❤️ Financial Health Check"); st.info("This feature is coming soon!")
 
 # --- Login & Portal Logic ---
 def show_login_page(df):
     st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
-    
     login_tab, create_account_tab = st.tabs(["Login to Your Account", "Open a New Account"])
-
     with login_tab:
         col1, col2 = st.columns(2)
         with col1:
@@ -244,7 +258,6 @@ def show_login_page(df):
                         st.session_state.username = st.session_state.customer_data['FirstName']
                         st.toast(f"Welcome, {st.session_state.username}!", icon="👋"); st.rerun()
                     else: st.error("Invalid Login ID or Password")
-    
     with create_account_tab:
         st.subheader("✨ Let's Get You Started")
         with st.form("new_account_form"):
@@ -252,20 +265,17 @@ def show_login_page(df):
             new_lname = st.text_input("Last Name")
             new_mobile = st.text_input("Mobile Number (+91)")
             new_email = st.text_input("Email Address")
-            initial_deposit = st.number_input("Initial Deposit (₹)", min_value=1000, value=5000)
             if st.form_submit_button("Create My Account"):
                 if all([new_fname, new_lname, new_mobile, new_email]):
                     new_cust_id = df['CustomerID'].max() + 1
                     new_acc_num = df['AccountNumber'].max() + 1
                     new_login_id = f"{new_fname.capitalize()}{new_lname[0].upper()}{str(new_mobile)[-4:]}"
                     st.success("🎉 Account Created Successfully!")
-                    st.balloons()
-                    st.markdown("Please use these credentials to log in:")
+                    st.markdown("Please use these credentials to log in on the previous tab:")
                     st.text_input("Your New Customer Login ID", value=new_login_id, disabled=True)
                     st.text_input("Your Password (your Mobile Number)", value=new_mobile, disabled=True)
                     st.info("Note: This new account is for simulation only and will not be saved permanently.")
-                else:
-                    st.error("Please fill in all the details.")
+                else: st.error("Please fill in all the details.")
 
 def show_employee_portal(df, model, model_columns):
     st.title(f"🏢 Employee Portal")
@@ -325,7 +335,7 @@ def main():
         if st.session_state.logged_in:
             if st.session_state.user_type == "Employee":
                 model_pipeline, model_columns = train_model(df)
-                st.session_state.model = model_pipeline # Store model in session state for bot
+                st.session_state.model = model_pipeline
                 st.session_state.model_columns = model_columns
                 show_employee_portal(df, model_pipeline, model_columns)
             else: # Customer
