@@ -60,34 +60,27 @@ def train_model(df):
 
 def page_ai_copilot(df, model, model_columns):
     st.header("🤖 AI Co-Pilot")
-    st.markdown(f"**Friday, October 10, 2025 | 1:09 AM**")
+    st.markdown(f"**Friday, October 10, 2025 | 1:14 AM**")
     st.info("Here are your AI-powered priorities for today to maximize efficiency and results.", icon="🚀")
-
-    # Task 1: High-Propensity Lead
     unsubscribed_df = df[df['y'] == 'no'].copy()
     leads_to_predict = unsubscribed_df[model_columns]
     predictions = model.predict_proba(leads_to_predict)[:, 1]
     unsubscribed_df['Subscription Likelihood'] = predictions
     top_lead = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False).iloc[0]
-    
     with st.container(border=True):
         st.subheader("🎯 High-Propensity Follow-up")
-        st.write(f"Contact **{top_lead['FirstName']} {top_lead['LastName']}**. Our AI gives them an **{top_lead['Subscription Likelihood']:.0%} probability** of subscribing to a Term Deposit.")
+        st.write(f"Contact **{top_lead['FirstName']} {top_lead['LastName']}**. Our AI gives them an **{top_lead['Subscription Likelihood']:.0%} probability** of subscribing.")
         st.info(f"**Suggestion:** Pitch the 'Diwali Dhamaka FD' offer, as their balance is high (₹{top_lead['balance']:,}).", icon="💡")
-
-    # Task 2: Churn Prevention
     at_risk_customer = df[df['balance'] < 10000].iloc[0]
     with st.container(border=True):
         st.subheader("🔔 Churn Prevention Alert")
-        st.write(f"**{at_risk_customer['FirstName']} {at_risk_customer['LastName']}'s** account balance dropped to **₹{at_risk_customer['balance']:,}**. They are now an at-risk customer.")
-        st.warning("**Suggestion:** Call to offer a personal loan or discuss investment options for their remaining funds to show support.", icon="🚨")
-    
-    # Task 3: Cross-Sell Opportunity
+        st.write(f"**{at_risk_customer['FirstName']} {at_risk_customer['LastName']}'s** account balance dropped to **₹{at_risk_customer['balance']:,}**. They are an at-risk customer.")
+        st.warning("**Suggestion:** Call to offer a personal loan or discuss investment options to show support.", icon="🚨")
     cross_sell_customer = df[(df['housing'] == 'yes') & (df['y'] == 'no')].iloc[0]
     with st.container(border=True):
         st.subheader("🔗 Cross-Sell Opportunity")
-        st.write(f"**{cross_sell_customer['FirstName']} {cross_sell_customer['LastName']}** has an active home loan with us but hasn't invested in a term deposit.")
-        st.success("**Suggestion:** Offer them a small, high-yield Fixed Deposit as a secure investment alongside their loan.", icon="🤝")
+        st.write(f"**{cross_sell_customer['FirstName']} {cross_sell_customer['LastName']}** has an active home loan but hasn't invested in a term deposit.")
+        st.success("**Suggestion:** Offer them a small, high-yield Fixed Deposit as a secure investment.", icon="🤝")
 
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
@@ -109,9 +102,31 @@ def page_analytics(df):
 def page_account_summary():
     customer_data = st.session_state.customer_data
     zen_mode = st.session_state.get('zen_mode', False)
+    commute_mode = st.session_state.get('commute_mode', False)
 
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
+
+    # Commute Mode UI
+    if commute_mode and not zen_mode:
+        st.subheader("🚗 Your Morning Commute Briefing")
+        with st.container(border=True):
+            yesterday_spend = sum(t['Amount (₹)'] for t in st.session_state.transactions if t['Amount (₹)'] < 0 and 'Yesterday' in t['Date'])
+            total_balance = sum(st.session_state.accounts.values())
+            col1, col2 = st.columns(2)
+            col1.metric("Total Account Balance", f"₹{total_balance:,.0f}")
+            col2.metric("Yesterday's Spend", f"₹{abs(yesterday_spend):,.0f}")
+            st.info("**Tip of the Day:** Even small, consistent investments can lead to significant wealth. Have you activated your Algo Bots yet?", icon="💡")
+        
+        st.subheader("🎧 Listen on the Go")
+        audio_briefings = [
+            {"icon": "📈", "title": "Daily Market Update", "desc": "A 5-min summary of yesterday's market performance and today's outlook."},
+            {"icon": "💰", "title": "Building Your First Crore", "desc": "Quick tips on how to plan your SIPs to reach your long-term goals."}
+        ]
+        for item in audio_briefings:
+            with st.container(border=True):
+                st.markdown(f"**{item['icon']} {item['title']}**\n\n{item['desc']}")
     
+    # Standard & Zen Mode UI
     st.subheader("Your Account Details")
     col1, col2 = st.columns(2)
     with col1: st.text_input("Account Number", value=customer_data['AccountNumber'], disabled=True)
@@ -120,19 +135,18 @@ def page_account_summary():
     st.subheader("Account Balances")
     if zen_mode:
         st.info("🧘 Zen Mode is active. Balances are hidden to promote financial peace of mind.", icon="✨")
-        cols = st.columns(len(st.session_state.accounts))
-        affirmations = ["You're on track!", "Your savings are growing.", "Keep up the great work!"]
-        for i, acc_name in enumerate(st.session_state.accounts.keys()):
-            cols[i].metric(acc_name, affirmations[i % len(affirmations)])
+        cols = st.columns(len(st.session_state.accounts)); affirmations = ["You're on track!", "Your savings are growing.", "Keep up the great work!"]
+        for i, acc_name in enumerate(st.session_state.accounts.keys()): cols[i].metric(acc_name, affirmations[i % len(affirmations)])
     else:
         cols = st.columns(len(st.session_state.accounts))
         for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()): cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
     
     st.markdown("---")
     if zen_mode:
-        st.warning("Quick actions are disabled in Zen Mode to prevent impulsive decisions. Toggle Zen Mode off in the sidebar to proceed.", icon="🧘")
+        st.warning("Quick actions are disabled in Zen Mode. Toggle Zen Mode off in the sidebar to proceed.", icon="🧘")
     else:
         st.subheader("Quick Actions")
+        # ... (Quick Actions code is unchanged)
         col1, col2 = st.columns(2)
         with col1:
             with st.expander("📲 Send Money via UPI"):
@@ -140,32 +154,28 @@ def page_account_summary():
                     recipient_upi_id = st.text_input("Recipient UPI ID", "merchant@okbank")
                     amount = st.number_input("Amount (₹)", min_value=1.0, step=10.0)
                     debit_account = st.selectbox("From Account", list(st.session_state.accounts.keys()), key="upi_debit")
-                    
-                    # UPI Pay Later Feature
                     use_credit = st.checkbox("Pay using your UPI Credit Line")
                     if use_credit:
                         available_credit = st.session_state.card_details['limit'] - st.session_state.card_details['outstanding']
                         st.info(f"Available Credit: ₹{available_credit:,.2f}")
-
                     if st.form_submit_button("Send via UPI"):
                         if use_credit:
                             if amount > available_credit: st.error("Insufficient credit limit.")
                             else:
                                 st.session_state.card_details['outstanding'] += amount
-                                new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"UPI on Credit to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Credit Spends"}
+                                new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI on Credit to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Credit Spends"}
                                 st.session_state.transactions.insert(0, new_tx)
-                                st.toast(f"✅ ₹{amount} paid on credit!", icon="💳"); st.rerun()
+                                st.toast(f"✅ ₹{amount} paid to {recipient_upi_id} on credit!", icon="💳"); st.rerun()
                         else:
                             if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
                             else:
                                 st.session_state.accounts[debit_account] -= amount
-                                new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Payments"}
+                                new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Payments"}
                                 st.session_state.transactions.insert(0, new_tx)
-                                st.toast(f"✅ ₹{amount} sent successfully!", icon="🎉"); st.rerun()
+                                st.toast(f"✅ ₹{amount} sent to {recipient_upi_id}!", icon="🎉"); st.rerun()
         with col2:
             with st.expander("🏦 Within-Bank Transfer"):
                 with st.form("transfer_form", clear_on_submit=True):
-                    # ... (form code is unchanged)
                     recipient_list = st.session_state.all_customers[st.session_state.all_customers['CustomerID'] != customer_data['CustomerID']]
                     recipient_name = st.selectbox("Select Recipient", recipient_list['FirstName'] + ' ' + recipient_list['LastName'])
                     amount = st.number_input("Amount (₹)", min_value=1.0, step=100.0)
@@ -174,12 +184,13 @@ def page_account_summary():
                         if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
                         else:
                             st.session_state.accounts[debit_account] -= amount
-                            new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount, "Category": "Transfers"}
+                            new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount, "Category": "Transfers"}
                             st.session_state.transactions.insert(0, new_tx)
-                            st.toast(f"✅ ₹{amount} transferred successfully!", icon="🎉"); st.rerun()
+                            st.toast(f"✅ ₹{amount} transferred to {recipient_name}!", icon="🎉"); st.rerun()
     st.markdown("---")
     st.subheader("Recent Transactions")
     st.dataframe(pd.DataFrame(st.session_state.transactions), use_container_width=True)
+
 
 def page_algo_bots():
     # ... (code for this page is unchanged)
@@ -200,8 +211,7 @@ def page_algo_bots():
                 goal['value'] += goal['sip'] * random.uniform(1.0, 1.05)
             st.toast("Simulated one month of automated investing!", icon="📈"); st.rerun()
         st.markdown("---")
-        if st.session_state.bots['round_up']:
-            st.write(f"💰 **Round-Up Savings (Liquid Fund):** Current Value **₹{st.session_state.bots['round_up_value']:,.2f}**")
+        if st.session_state.bots['round_up']: st.write(f"💰 **Round-Up Savings (Liquid Fund):** Current Value **₹{st.session_state.bots['round_up_value']:,.2f}**")
         for goal in st.session_state.goals:
             progress = min(goal['value'] / goal['target'], 1.0) if goal['target'] > 0 else 0
             st.write(f"🎯 **Goal: {goal['name']}** - Current Value **₹{goal['value']:,.2f}** / ₹{goal['target']:,}")
@@ -237,33 +247,7 @@ def page_algo_bots():
             if st.button("🚀 Start this SIP Plan", use_container_width=True):
                 new_goal = {"name": goal, "target": target_amount, "sip": monthly_sip, "invested": 0, "value": 0}
                 st.session_state.goals.append(new_goal)
-                st.success(f"Your SIP for '{goal}' is now active and tracked in your portfolio!"); st.balloons(); st.rerun()
-
-def page_cards_and_loans():
-    # ... (code for this page is unchanged)
-    st.header("💳 Cards & Loans")
-    st.subheader("Your Credit Card Summary")
-    card = st.session_state.card_details
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Credit Limit", f"₹{card['limit']:,.2f}")
-    col2.metric("Outstanding Amount", f"₹{card['outstanding']:,.2f}")
-    utilization = (card['outstanding'] / card['limit']) if card['limit'] > 0 else 0
-    col3.metric("Credit Utilization", f"{utilization:.1%}")
-    st.progress(utilization)
-    if card['outstanding'] > 0.01:
-        with st.form("card_payment_form"):
-            st.subheader("Make a Card Payment")
-            payment_amount = st.number_input("Amount to Pay (₹)", min_value=0.01, max_value=card['outstanding'], value=card['outstanding'])
-            payment_account = st.selectbox("Pay from Account", list(st.session_state.accounts.keys()))
-            if st.form_submit_button("Pay Credit Card Bill"):
-                if payment_amount > st.session_state.accounts[payment_account]: st.error("Insufficient balance.")
-                else:
-                    st.session_state.accounts[payment_account] -= payment_amount
-                    st.session_state.card_details['outstanding'] -= payment_amount
-                    new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": "Credit Card Bill Payment", "Amount (₹)": -payment_amount, "Category": "Bills"}
-                    st.session_state.transactions.insert(0, new_tx)
-                    st.toast("✅ Card payment successful!", icon="💳"); st.rerun()
-    else: st.success("🎉 Your credit card bill is fully paid!")
+                st.toast(f"Your SIP for '{goal}' is now active!", icon="🎯"); st.success(f"Your SIP for '{goal}' is now active and tracked in your portfolio!"); st.balloons(); st.rerun()
 
 def page_financial_health():
     # ... (code for this page is unchanged)
@@ -290,8 +274,8 @@ def page_financial_health():
         else: st.error("Status: Needs Attention")
     with col2:
         if score > 80: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #28a745; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
-        elif score > 50: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #ffc107; text-align: right; color: black; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
-        else: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #dc3545; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        elif score > 50: st.markdown(f'<div style="width: 100%; background-color: #ffc107; text-align: right; color: black; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        else: st.markdown(f'<div style="width: 100%; background-color: #dc3545; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
     st.markdown("---")
     st.subheader("💡 AI-Powered Pro-Tips")
     for tip in pro_tips[:3]: st.info(tip, icon="🧠")
@@ -306,12 +290,13 @@ def initialize_customer_session(customer_data):
     if customer_data['job'] == 'student': st.session_state.accounts = {"Savings": customer_data['balance']}
     else: st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
     st.session_state.transactions = [
-        {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"},
-        {"Date": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
+        {"Date": (datetime.now() - timedelta(days=1)).strftime('Yesterday, %I:%M %p'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"},
+        {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d, %I:%M %p'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
     ]
     st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0, "round_up_value": 0.0}
     st.session_state.goals = []
     st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
+    st.session_state.notifications = [f"Welcome back, {customer_data['FirstName']}! Your last login was yesterday."]
 
 # --- Login & Portal Logic ---
 def show_login_page(df):
@@ -344,14 +329,11 @@ def show_login_page(df):
     with create_account_tab:
         st.subheader("✨ Let's Get You Started")
         with st.form("new_account_form"):
-            new_fname = st.text_input("First Name")
-            new_lname = st.text_input("Last Name")
-            new_mobile = st.text_input("Mobile Number (+91)")
-            new_email = st.text_input("Email Address")
+            new_fname = st.text_input("First Name"); new_lname = st.text_input("Last Name")
+            new_mobile = st.text_input("Mobile Number (+91)"); new_email = st.text_input("Email Address")
             if st.form_submit_button("Create My Account"):
                 if all([new_fname, new_lname, new_mobile, new_email]):
-                    new_cust_id = df['CustomerID'].max() + 1
-                    new_acc_num = df['AccountNumber'].max() + 1
+                    new_cust_id = df['CustomerID'].max() + 1; new_acc_num = df['AccountNumber'].max() + 1
                     new_login_id = f"{new_fname.capitalize()}{new_lname[0].upper()}{str(new_mobile)[-4:]}"
                     st.success("🎉 Account Created Successfully!")
                     st.markdown("Please use these credentials to log in on the previous tab:")
@@ -384,14 +366,28 @@ def show_customer_portal():
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username}!")
         st.markdown("---")
+        
+        # Notification Center
+        notif_count = len(st.session_state.get('notifications', []))
+        notif_badge = f" ({notif_count})" if notif_count > 0 else ""
+        with st.expander(f"🔔 Notifications{notif_badge}"):
+            if notif_count > 0:
+                for notif in st.session_state.notifications: st.info(notif)
+            else: st.write("No new notifications.")
+
         selection = st.radio("Go to", ["🏠 Account Summary", "🤖 Algo Savings", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health"])
         st.markdown("---")
-        # Zen Mode Toggle
-        st.session_state.zen_mode = st.toggle('🧘 Zen Mode', value=st.session_state.get('zen_mode', False), help="Hide balances and disable transactions for a stress-free experience.")
+        
+        # Contextual Modes
+        st.session_state.zen_mode = st.toggle('🧘 Zen Mode', value=st.session_state.get('zen_mode', False), help="Hide balances for a stress-free experience.")
+        is_morning = 7 <= datetime.now().hour < 12
+        st.session_state.commute_mode = st.toggle('🚗 Commute Mode', value=is_morning, help="Get a quick morning briefing.")
+        
         st.markdown("---")
         if st.button("Logout"):
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
+            
     if selection == "🏠 Account Summary": page_account_summary()
     elif selection == "🤖 Algo Savings": page_algo_bots()
     elif selection == "💳 Cards & Loans": page_cards_and_loans()
