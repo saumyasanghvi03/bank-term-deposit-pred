@@ -19,7 +19,7 @@ def load_data(path):
     try:
         return pd.read_csv(path)
     except FileNotFoundError:
-        st.error(f"Error: The data file was not found at '{path}'. Please ensure 'bank_data_pii.csv' is in the 'data' folder.")
+        st.error(f"Error: The data file was not found at '{path}'. Please ensure 'bank_data_final.csv' is in the 'data' folder.")
         return None
     except Exception as e:
         st.error(f"An error occurred while loading the data: {e}")
@@ -36,7 +36,8 @@ def train_model(df):
     df_copy = df.copy()
     df_copy['y'] = df_copy['y'].map({'yes': 1, 'no': 0})
     
-    pii_columns = ['CustomerID', 'FirstName', 'LastName', 'MobileNumber', 'Email', 'Address']
+    # --- CRITICAL: Define ALL PII columns to exclude from training ---
+    pii_columns = ['CustomerID', 'FirstName', 'LastName', 'MobileNumber', 'Email', 'Address', 'AccountNumber', 'IFSCCode', 'LoginUserID']
     X = df_copy.drop(columns=pii_columns + ['y'])
     y = df_copy['y']
     
@@ -59,6 +60,7 @@ def train_model(df):
 # --- Employee Portal Pages ---
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
+    # ... (code for this page is unchanged)
     st.subheader("Key Performance Indicators (KPIs)")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Customers", f"{df.shape[0]:,}")
@@ -76,8 +78,10 @@ def page_analytics(df):
     with col2:
         st.plotly_chart(px.bar(df['job'].value_counts().reset_index(), x='job', y='count', title='Job Distribution'), use_container_width=True)
 
+
 def page_prediction(df, model_pipeline, model_columns):
     st.header("🔮 Subscription Propensity AI")
+    # ... (code for this page is unchanged)
     with st.form("prediction_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -92,7 +96,6 @@ def page_prediction(df, model_pipeline, model_columns):
             housing = st.selectbox("Has Housing Loan?", ["no", "yes"])
             loan = st.selectbox("Has Personal Loan?", ["no", "yes"])
             campaign = st.number_input("Number of Contacts in Campaign", 1, 100, 1)
-        
         if st.form_submit_button("🧠 Predict Likelihood"):
             input_data_dict = {
                 'age': [age], 'job': [job], 'marital': [marital], 'education': [education],
@@ -113,7 +116,7 @@ def page_prediction(df, model_pipeline, model_columns):
 
 def page_bank_offers():
     st.header("✨ Festive Offers for Diwali 2025 ✨")
-    # ... (code for this page remains the same)
+    # ... (code for this page is unchanged)
     offers = [
         {"title": "Dhanteras Gold Rush", "icon": "🪙", "rate": "Instant 5% Cashback", "benefit": "On Gold Jewellery & Coin Loans", "description": "Celebrate Dhanteras by bringing home prosperity. Get an instant personal loan for gold purchases with zero processing fees and receive 5% cashback on the loan amount."},
         {"title": "Diwali Wheels of Joy", "icon": "🚗", "rate": "Starting at 8.25%", "benefit": "Zero Down Payment on Car Loans", "description": "Bring home a new car this Diwali. Our special car loan offer comes with a rock-bottom interest rate and a zero down payment option for approved customers."},
@@ -131,74 +134,90 @@ def page_bank_offers():
 
 def page_lead_finder(df, model, model_columns):
     st.header("🎯 AI Lead Finder")
-    st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit.")
-    
+    # ... (code for this page is unchanged)
     unsubscribed_df = df[df['y'] == 'no'].copy()
     leads_to_predict = unsubscribed_df[model_columns]
     predictions = model.predict_proba(leads_to_predict)[:, 1]
     unsubscribed_df['Subscription Likelihood'] = predictions
-    
     prioritized_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False)
-    
     st.dataframe(prioritized_leads[['FirstName', 'LastName', 'MobileNumber', 'age', 'job', 'balance', 'Subscription Likelihood']],
                  use_container_width=True,
                  column_config={"Subscription Likelihood": st.column_config.ProgressColumn("Likelihood", format="%.2f", min_value=0, max_value=1)})
 
 # --- Customer Portal Pages ---
 def page_account_summary():
-    st.header(f"Welcome Back, {st.session_state.username.capitalize()}!")
-    # ... (code for this page remains the same)
+    # Get the logged-in customer's data from session state
+    customer_data = st.session_state.customer_data
+    
+    st.header(f"Welcome Back, {customer_data['FirstName']}!")
+    st.markdown("Here is your personalized account summary.")
+    
+    # Initialize dynamic account details for the specific customer
     if 'accounts' not in st.session_state:
-        st.session_state.accounts = {"Checking": 85450.75, "Savings": 312500.50}
+        # Simulate different accounts based on customer type
+        if customer_data['job'] == 'student':
+            st.session_state.accounts = {"Savings": customer_data['balance']}
+        else:
+            st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
+    
+    # Display Account Number and IFSC
+    st.subheader("Your Account Details")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.text_input("Account Number", value=customer_data['AccountNumber'], disabled=True)
+    with col2:
+        st.text_input("IFSC Code", value=customer_data['IFSCCode'], disabled=True)
+
+    st.subheader("Account Balances")
+    cols = st.columns(len(st.session_state.accounts))
+    for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()):
+        cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
+
+    # ... The rest of the page logic (transactions, UPI) can remain largely the same ...
     if 'transactions' not in st.session_state:
         st.session_state.transactions = [
-            {"Date": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'), "Description": "Jewellery Store - Tanishq", "Amount (₹)": -25000.00, "Category": "Shopping"},
             {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket - Reliance Smart", "Amount (₹)": -5210.50, "Category": "Groceries"},
             {"Date": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
-            {"Date": (datetime.now() - timedelta(days=5)).strftime('%Y-%m-%d'), "Description": "Zomato Order", "Amount (₹)": -850.00, "Category": "Food"},
-            {"Date": (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d'), "Description": "Utility Bill - Electricity", "Amount (₹)": -3500.00, "Category": "Bills"},
         ]
-    st.subheader("Account Balances")
-    col1, col2 = st.columns(2)
-    col1.metric("Checking Account", f"₹{st.session_state.accounts['Checking']:,.2f}")
-    col2.metric("Savings Account", f"₹{st.session_state.accounts['Savings']:,.2f}")
-    savings_balance = st.session_state.accounts['Savings']
-    if savings_balance < 50000: st.info("💡 **Pro-Tip:** Your savings balance is low. Consider setting up a recurring deposit to build your emergency fund.", icon="🧠")
-    elif savings_balance > 500000: st.info("💡 **Pro-Tip:** You have a healthy savings balance! Consider exploring our investment options to make your money grow faster.", icon="🧠")
     st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Spending Habits")
         transactions_df = pd.DataFrame(st.session_state.transactions)
         spending_df = transactions_df[transactions_df['Amount (₹)'] < 0].copy()
-        spending_df['Amount (₹)'] = spending_df['Amount (₹)'].abs()
-        spending_by_category = spending_df.groupby('Category')['Amount (₹)'].sum().reset_index()
-        fig = px.pie(spending_by_category, values='Amount (₹)', names='Category', title='Your Recent Spending Breakdown', hole=0.4)
-        st.plotly_chart(fig, use_container_width=True)
+        if not spending_df.empty:
+            spending_df['Amount (₹)'] = spending_df['Amount (₹)'].abs()
+            spending_by_category = spending_df.groupby('Category')['Amount (₹)'].sum().reset_index()
+            fig = px.pie(spending_by_category, values='Amount (₹)', names='Category', title='Your Recent Spending Breakdown', hole=0.4)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.write("No spending transactions yet.")
     with col2:
         st.subheader("Recent Transactions")
-        st.dataframe(pd.DataFrame(st.session_state.transactions).drop(columns=['Category']), use_container_width=True)
+        st.dataframe(pd.DataFrame(st.session_state.transactions).drop(columns=['Category'], errors='ignore'), use_container_width=True)
+    
+    # UPI simulation
     with st.expander("📲 Send Money via UPI"):
         with st.form("upi_form"):
             recipient_upi_id = st.text_input("Recipient UPI ID", "merchant@okbank")
             amount = st.number_input("Amount (₹)", min_value=1.0, max_value=50000.0, step=10.0)
-            remarks = st.text_input("Remarks (Optional)", "Shopping")
             debit_account = st.selectbox("Debit from Account", list(st.session_state.accounts.keys()))
             proceed_to_pay = st.form_submit_button("Proceed to Pay")
             if proceed_to_pay:
                 if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
                 else:
                     st.session_state.upi_pin_prompt = True
-                    st.session_state.upi_details = {"recipient": recipient_upi_id, "amount": amount, "remarks": remarks, "debit_account": debit_account}
+                    st.session_state.upi_details = {"recipient": recipient_upi_id, "amount": amount, "debit_account": debit_account}
                     st.rerun()
     if st.session_state.get('upi_pin_prompt', False):
+        # ... UPI PIN logic remains the same
         details = st.session_state.upi_details
         st.subheader("Confirm Transaction")
         pin = st.text_input("Enter your 4-digit UPI PIN", type="password", max_chars=4)
         if st.button("Confirm Payment"):
             if pin == "1234":
                 st.session_state.accounts[details['debit_account']] -= details['amount']
-                new_transaction = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"UPI to {details['recipient']} ({details['remarks']})", "Amount (₹)": -details['amount'], "Category": "Transfers"}
+                new_transaction = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"UPI to {details['recipient']}", "Amount (₹)": -details['amount'], "Category": "Transfers"}
                 st.session_state.transactions.insert(0, new_transaction)
                 st.success("Payment Successful!")
                 del st.session_state.upi_pin_prompt; del st.session_state.upi_details
@@ -207,41 +226,11 @@ def page_account_summary():
 
 def page_cards_and_loans():
     st.header("💳 Cards & Loans")
-    if 'card_details' not in st.session_state:
-        st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
-    st.subheader("Your Credit Card Summary")
-    card = st.session_state.card_details
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Credit Limit", f"₹{card['limit']:,.2f}")
-    col2.metric("Outstanding Amount", f"₹{card['outstanding']:,.2f}")
-    utilization = (card['outstanding'] / card['limit']) if card['limit'] > 0 else 0
-    col3.metric("Credit Utilization", f"{utilization:.1%}")
-    st.progress(utilization)
-    
-    # ** FIX 1: Only show the payment form if there is a balance to pay **
-    if card['outstanding'] > 0.01:
-        with st.form("card_payment_form"):
-            st.subheader("Make a Card Payment")
-            payment_amount = st.number_input("Amount to Pay (₹)", min_value=0.01, max_value=card['outstanding'], value=card['outstanding'])
-            payment_account = st.selectbox("Pay from Account", list(st.session_state.accounts.keys()))
-            
-            if st.form_submit_button("Pay Credit Card Bill"):
-                if payment_amount > st.session_state.accounts[payment_account]:
-                    st.error("Insufficient balance in the selected account.")
-                else:
-                    st.session_state.accounts[payment_account] -= payment_amount
-                    st.session_state.card_details['outstanding'] -= payment_amount
-                    new_transaction = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": "Credit Card Bill Payment", "Amount (₹)": -payment_amount, "Category": "Bills"}
-                    st.session_state.transactions.insert(0, new_transaction)
-                    st.success("Card payment successful!")
-                    st.rerun()
-    else:
-        st.success("🎉 Your credit card bill is fully paid!")
-
+    st.info("This feature is coming soon!")
 
 def page_investments():
     st.header("💹 Investment Hub")
-    # ... (code for this page remains the same)
+    # ... (code for this page is unchanged)
     mf_data = [{"name": "Nifty 50 Index Fund", "category": "Index Fund", "risk": "Moderate", "desc": "Invests in India's top 50 companies."}, {"name": "ELSS Tax Saver Fund", "category": "Tax Saver (ELSS)", "risk": "Moderately High", "desc": "Offers tax benefits under Section 80C with a 3-year lock-in."}, {"name": "Gold Fund", "category": "Commodity", "risk": "Low to Moderate", "desc": "A smart way to invest in gold digitally."}]
     etf_data = [{"name": "Nifty 50 ETF", "category": "Equity Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index at a very low cost."}, {"name": "Gold BEES ETF", "category": "Commodity", "risk": "Low to Moderate", "desc": "Invests in physical gold."}, {"name": "IT BEES ETF", "category": "Sectoral", "risk": "High", "desc": "Focuses on top Indian IT companies."}]
     tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
@@ -254,7 +243,7 @@ def page_investments():
 
 def page_calculators():
     st.header("🧮 Financial Calculators")
-    # ... (code for this page remains the same)
+    # ... (code for this page is unchanged)
     tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
     with tab1:
         st.subheader("Systematic Investment Plan (SIP) Calculator")
@@ -292,12 +281,17 @@ def page_calculators():
         st.metric("Estimated Retirement Corpus Needed", f"₹{retirement_corpus:,.0f}")
 
 # --- Login & Portal Logic ---
-def show_login_page():
-    # ... (code for this function remains the same)
+def show_login_page(df):
     st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
     st.markdown("---")
+    
+    # --- Dynamic Customer Login ---
+    # We use Mobile Number as the password for this simulation
+    customer_creds = dict(zip(df['LoginUserID'], df['MobileNumber'].astype(str)))
+    
+    # --- Static Employee Login ---
     employee_creds = {"admin": "password123"}
-    customer_creds = {"customer": "mumbai"}
+
     col1, col2 = st.columns(2)
     with col1:
         with st.form("employee_login"):
@@ -306,17 +300,27 @@ def show_login_page():
             emp_pass = st.text_input("Password", type="password", key="emp_pass", value="password123")
             if st.form_submit_button("Login as Employee"):
                 if emp_user in employee_creds and emp_pass == employee_creds[emp_user]:
-                    st.session_state.logged_in = True; st.session_state.user_type = "Employee"; st.session_state.username = emp_user; st.rerun()
-                else: st.error("Invalid username or password")
+                    st.session_state.logged_in = True
+                    st.session_state.user_type = "Employee"
+                    st.session_state.username = emp_user
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password")
     with col2:
         with st.form("customer_login"):
             st.subheader("👤 Customer Access Portal")
-            cust_user = st.text_input("Username", key="cust_user", value="customer")
-            cust_pass = st.text_input("Password", type="password", key="cust_pass", value="mumbai")
+            cust_user_id = st.text_input("Customer Login ID", key="cust_user", value="PriyaS2345")
+            cust_pass = st.text_input("Password (use Mobile Number)", type="password", key="cust_pass", value="+91 9820012345")
             if st.form_submit_button("Login as Customer"):
-                if cust_user in customer_creds and cust_pass == customer_creds[cust_user]:
-                    st.session_state.logged_in = True; st.session_state.user_type = "Customer"; st.session_state.username = cust_user; st.rerun()
-                else: st.error("Invalid username or password")
+                if cust_user_id in customer_creds and cust_pass == customer_creds[cust_user_id]:
+                    st.session_state.logged_in = True
+                    st.session_state.user_type = "Customer"
+                    # Store the entire row of customer data in session state
+                    st.session_state.customer_data = df[df['LoginUserID'] == cust_user_id].iloc[0].to_dict()
+                    st.session_state.username = st.session_state.customer_data['FirstName']
+                    st.rerun()
+                else:
+                    st.error("Invalid Login ID or Password")
 
 def show_employee_portal(df, model, model_columns):
     with st.sidebar:
@@ -330,7 +334,6 @@ def show_employee_portal(df, model, model_columns):
         
         page_options = { 
             "📈 Customer Analytics": lambda: page_analytics(df), 
-            # ** FIX 2: Pass all required arguments in the lambda function **
             "🔮 Propensity AI": lambda: page_prediction(df, model, model_columns), 
             "🎯 AI Lead Finder": lambda: page_lead_finder(df, model, model_columns),
             "✨ Festive Offers": page_bank_offers
@@ -338,14 +341,14 @@ def show_employee_portal(df, model, model_columns):
         selection = st.radio("Go to", list(page_options.keys()))
         st.markdown("---")
         if st.button("Logout"):
-            for key in st.session_state.keys(): del st.session_state[key]
+            for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
     st.title(f"🏢 Employee Portal: {selection}")
     page_options[selection]()
 
 def show_customer_portal():
     with st.sidebar:
-        st.markdown(f"### Welcome, {st.session_state.username.capitalize()}!")
+        st.markdown(f"### Welcome, {st.session_state.username}!")
         st.markdown("---")
         page_options = { 
             "🏠 Account Summary": page_account_summary, 
@@ -356,7 +359,7 @@ def show_customer_portal():
         selection = st.radio("Go to", list(page_options.keys()))
         st.markdown("---")
         if st.button("Logout"):
-            for key in st.session_state.keys(): del st.session_state[key]
+            for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
     st.title(f"👤 Customer Portal: {selection}")
     page_options[selection]()
@@ -366,17 +369,17 @@ def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     
     DATA_PATH = "data/bank_data_pii.csv"
+    df = load_data(DATA_PATH)
 
-    if st.session_state.logged_in:
-        if st.session_state.user_type == "Employee":
-            df = load_data(DATA_PATH)
-            if df is not None:
+    if df is not None:
+        if st.session_state.logged_in:
+            if st.session_state.user_type == "Employee":
                 model_pipeline, model_columns = train_model(df)
                 show_employee_portal(df, model_pipeline, model_columns)
+            else: # Customer
+                show_customer_portal()
         else:
-            show_customer_portal()
-    else:
-        show_login_page()
+            show_login_page(df)
 
 if __name__ == "__main__":
     main()
