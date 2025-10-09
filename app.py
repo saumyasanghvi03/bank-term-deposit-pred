@@ -36,7 +36,6 @@ def train_model(df):
     df_copy = df.copy()
     df_copy['y'] = df_copy['y'].map({'yes': 1, 'no': 0})
     
-    # --- CRITICAL STEP: Exclude PII from training data ---
     pii_columns = ['CustomerID', 'FirstName', 'LastName', 'MobileNumber', 'Email', 'Address']
     X = df_copy.drop(columns=pii_columns + ['y'])
     y = df_copy['y']
@@ -55,7 +54,7 @@ def train_model(df):
         ('classifier', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42))
     ])
     pipeline.fit(X, y)
-    return pipeline, X.columns # Return trained model AND the columns it was trained on
+    return pipeline, X.columns
 
 # --- Employee Portal Pages ---
 def page_analytics(df):
@@ -93,6 +92,7 @@ def page_prediction(df, model_pipeline, model_columns):
             housing = st.selectbox("Has Housing Loan?", ["no", "yes"])
             loan = st.selectbox("Has Personal Loan?", ["no", "yes"])
             campaign = st.number_input("Number of Contacts in Campaign", 1, 100, 1)
+        
         if st.form_submit_button("🧠 Predict Likelihood"):
             input_data_dict = {
                 'age': [age], 'job': [job], 'marital': [marital], 'education': [education],
@@ -114,11 +114,10 @@ def page_prediction(df, model_pipeline, model_columns):
 def page_bank_offers():
     st.header("✨ Festive Offers for Diwali 2025 ✨")
     # ... (code for this page remains the same)
-    st.markdown("Present these exclusive, limited-time offers to eligible customers to celebrate the festive season.")
     offers = [
-        {"title": "Dhanteras Gold Rush", "icon": "🪙", "rate": "Instant 5% Cashback", "benefit": "On Gold Jewellery & Coin Loans", "description": "Celebrate Dhanteras by bringing home prosperity. Get an instant personal loan for gold purchases with zero processing fees and receive 5% cashback on the loan amount. Offer valid till Dhanteras evening."},
-        {"title": "Diwali Wheels of Joy", "icon": "🚗", "rate": "Starting at 8.25%", "benefit": "Zero Down Payment on Car Loans", "description": "Bring home a new car this Diwali. Our special car loan offer comes with a rock-bottom interest rate and a zero down payment option for approved customers. Includes a complimentary FASTag."},
-        {"title": "Festive Home Makeover Loan", "icon": "🏡", "rate": "Attractive Low Interest", "benefit": "Quick Personal Loan for Renovations", "description": "Renovate your home for the festival of lights. Get a quick-disbursal personal loan up to ₹5 Lakhs for home improvements, painting, or buying new appliances. Minimal documentation required."},
+        {"title": "Dhanteras Gold Rush", "icon": "🪙", "rate": "Instant 5% Cashback", "benefit": "On Gold Jewellery & Coin Loans", "description": "Celebrate Dhanteras by bringing home prosperity. Get an instant personal loan for gold purchases with zero processing fees and receive 5% cashback on the loan amount."},
+        {"title": "Diwali Wheels of Joy", "icon": "🚗", "rate": "Starting at 8.25%", "benefit": "Zero Down Payment on Car Loans", "description": "Bring home a new car this Diwali. Our special car loan offer comes with a rock-bottom interest rate and a zero down payment option for approved customers."},
+        {"title": "Festive Home Makeover Loan", "icon": "🏡", "rate": "Attractive Low Interest", "benefit": "Quick Personal Loan for Renovations", "description": "Renovate your home for the festival of lights. Get a quick-disbursal personal loan up to ₹5 Lakhs for home improvements, painting, or buying new appliances."},
         {"title": "Diwali Dhamaka FD", "icon": "💰", "rate": "8.00% p.a.", "benefit": "Special High-Interest Fixed Deposit", "description": "Grow your wealth this Diwali. A limited-period Fixed Deposit scheme for all customers offering a special high interest rate. Senior citizens get an additional 0.5%!"}
     ]
     for offer in offers:
@@ -132,26 +131,23 @@ def page_bank_offers():
 
 def page_lead_finder(df, model, model_columns):
     st.header("🎯 AI Lead Finder")
-    st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit. Use this list to focus your marketing efforts.")
+    st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit.")
     
     unsubscribed_df = df[df['y'] == 'no'].copy()
-    
-    # Predict only on the columns the model was trained on
     leads_to_predict = unsubscribed_df[model_columns]
     predictions = model.predict_proba(leads_to_predict)[:, 1]
     unsubscribed_df['Subscription Likelihood'] = predictions
     
     prioritized_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False)
     
-    # Display actionable contact information along with the prediction
     st.dataframe(prioritized_leads[['FirstName', 'LastName', 'MobileNumber', 'age', 'job', 'balance', 'Subscription Likelihood']],
                  use_container_width=True,
                  column_config={"Subscription Likelihood": st.column_config.ProgressColumn("Likelihood", format="%.2f", min_value=0, max_value=1)})
 
 # --- Customer Portal Pages ---
-# ... (All customer portal pages: page_account_summary, page_cards_and_loans, page_investments, page_calculators remain exactly the same as the previous version)
 def page_account_summary():
     st.header(f"Welcome Back, {st.session_state.username.capitalize()}!")
+    # ... (code for this page remains the same)
     if 'accounts' not in st.session_state:
         st.session_state.accounts = {"Checking": 85450.75, "Savings": 312500.50}
     if 'transactions' not in st.session_state:
@@ -221,22 +217,31 @@ def page_cards_and_loans():
     utilization = (card['outstanding'] / card['limit']) if card['limit'] > 0 else 0
     col3.metric("Credit Utilization", f"{utilization:.1%}")
     st.progress(utilization)
-    with st.form("card_payment_form"):
-        st.subheader("Make a Card Payment")
-        payment_amount = st.number_input("Amount to Pay (₹)", min_value=100.0, max_value=card['outstanding'], value=card['outstanding'])
-        payment_account = st.selectbox("Pay from Account", list(st.session_state.accounts.keys()))
-        if st.form_submit_button("Pay Credit Card Bill"):
-            if payment_amount > st.session_state.accounts[payment_account]: st.error("Insufficient balance in the selected account.")
-            else:
-                st.session_state.accounts[payment_account] -= payment_amount
-                st.session_state.card_details['outstanding'] -= payment_amount
-                new_transaction = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": "Credit Card Bill Payment", "Amount (₹)": -payment_amount, "Category": "Bills"}
-                st.session_state.transactions.insert(0, new_transaction)
-                st.success("Card payment successful!")
-                st.rerun()
+    
+    # ** FIX 1: Only show the payment form if there is a balance to pay **
+    if card['outstanding'] > 0.01:
+        with st.form("card_payment_form"):
+            st.subheader("Make a Card Payment")
+            payment_amount = st.number_input("Amount to Pay (₹)", min_value=0.01, max_value=card['outstanding'], value=card['outstanding'])
+            payment_account = st.selectbox("Pay from Account", list(st.session_state.accounts.keys()))
+            
+            if st.form_submit_button("Pay Credit Card Bill"):
+                if payment_amount > st.session_state.accounts[payment_account]:
+                    st.error("Insufficient balance in the selected account.")
+                else:
+                    st.session_state.accounts[payment_account] -= payment_amount
+                    st.session_state.card_details['outstanding'] -= payment_amount
+                    new_transaction = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": "Credit Card Bill Payment", "Amount (₹)": -payment_amount, "Category": "Bills"}
+                    st.session_state.transactions.insert(0, new_transaction)
+                    st.success("Card payment successful!")
+                    st.rerun()
+    else:
+        st.success("🎉 Your credit card bill is fully paid!")
+
 
 def page_investments():
     st.header("💹 Investment Hub")
+    # ... (code for this page remains the same)
     mf_data = [{"name": "Nifty 50 Index Fund", "category": "Index Fund", "risk": "Moderate", "desc": "Invests in India's top 50 companies."}, {"name": "ELSS Tax Saver Fund", "category": "Tax Saver (ELSS)", "risk": "Moderately High", "desc": "Offers tax benefits under Section 80C with a 3-year lock-in."}, {"name": "Gold Fund", "category": "Commodity", "risk": "Low to Moderate", "desc": "A smart way to invest in gold digitally."}]
     etf_data = [{"name": "Nifty 50 ETF", "category": "Equity Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index at a very low cost."}, {"name": "Gold BEES ETF", "category": "Commodity", "risk": "Low to Moderate", "desc": "Invests in physical gold."}, {"name": "IT BEES ETF", "category": "Sectoral", "risk": "High", "desc": "Focuses on top Indian IT companies."}]
     tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
@@ -249,6 +254,7 @@ def page_investments():
 
 def page_calculators():
     st.header("🧮 Financial Calculators")
+    # ... (code for this page remains the same)
     tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
     with tab1:
         st.subheader("Systematic Investment Plan (SIP) Calculator")
@@ -324,6 +330,7 @@ def show_employee_portal(df, model, model_columns):
         
         page_options = { 
             "📈 Customer Analytics": lambda: page_analytics(df), 
+            # ** FIX 2: Pass all required arguments in the lambda function **
             "🔮 Propensity AI": lambda: page_prediction(df, model, model_columns), 
             "🎯 AI Lead Finder": lambda: page_lead_finder(df, model, model_columns),
             "✨ Festive Offers": page_bank_offers
