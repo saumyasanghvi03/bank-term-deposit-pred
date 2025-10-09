@@ -60,7 +60,6 @@ def train_model(df):
 # --- Employee Portal Pages ---
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
-    # ... (code for this page is unchanged)
     st.subheader("Key Performance Indicators (KPIs)")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Customers", f"{df.shape[0]:,}")
@@ -81,7 +80,6 @@ def page_analytics(df):
 
 def page_prediction(df, model_pipeline, model_columns):
     st.header("🔮 Subscription Propensity AI")
-    # ... (code for this page is unchanged)
     with st.form("prediction_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -116,7 +114,6 @@ def page_prediction(df, model_pipeline, model_columns):
 
 def page_bank_offers():
     st.header("✨ Festive Offers for Diwali 2025 ✨")
-    # ... (code for this page is unchanged)
     offers = [
         {"title": "Dhanteras Gold Rush", "icon": "🪙", "rate": "Instant 5% Cashback", "benefit": "On Gold Jewellery & Coin Loans", "description": "Celebrate Dhanteras by bringing home prosperity. Get an instant personal loan for gold purchases with zero processing fees and receive 5% cashback on the loan amount."},
         {"title": "Diwali Wheels of Joy", "icon": "🚗", "rate": "Starting at 8.25%", "benefit": "Zero Down Payment on Car Loans", "description": "Bring home a new car this Diwali. Our special car loan offer comes with a rock-bottom interest rate and a zero down payment option for approved customers."},
@@ -134,33 +131,32 @@ def page_bank_offers():
 
 def page_lead_finder(df, model, model_columns):
     st.header("🎯 AI Lead Finder")
-    # ... (code for this page is unchanged)
+    st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit. Use this list to focus your marketing efforts.")
+    
     unsubscribed_df = df[df['y'] == 'no'].copy()
     leads_to_predict = unsubscribed_df[model_columns]
     predictions = model.predict_proba(leads_to_predict)[:, 1]
     unsubscribed_df['Subscription Likelihood'] = predictions
+    
     prioritized_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False)
+    
     st.dataframe(prioritized_leads[['FirstName', 'LastName', 'MobileNumber', 'age', 'job', 'balance', 'Subscription Likelihood']],
                  use_container_width=True,
                  column_config={"Subscription Likelihood": st.column_config.ProgressColumn("Likelihood", format="%.2f", min_value=0, max_value=1)})
 
 # --- Customer Portal Pages ---
 def page_account_summary():
-    # Get the logged-in customer's data from session state
     customer_data = st.session_state.customer_data
     
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
     st.markdown("Here is your personalized account summary.")
     
-    # Initialize dynamic account details for the specific customer
     if 'accounts' not in st.session_state:
-        # Simulate different accounts based on customer type
         if customer_data['job'] == 'student':
             st.session_state.accounts = {"Savings": customer_data['balance']}
         else:
             st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
     
-    # Display Account Number and IFSC
     st.subheader("Your Account Details")
     col1, col2 = st.columns(2)
     with col1:
@@ -172,8 +168,7 @@ def page_account_summary():
     cols = st.columns(len(st.session_state.accounts))
     for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()):
         cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
-
-    # ... The rest of the page logic (transactions, UPI) can remain largely the same ...
+    
     if 'transactions' not in st.session_state:
         st.session_state.transactions = [
             {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket - Reliance Smart", "Amount (₹)": -5210.50, "Category": "Groceries"},
@@ -196,7 +191,6 @@ def page_account_summary():
         st.subheader("Recent Transactions")
         st.dataframe(pd.DataFrame(st.session_state.transactions).drop(columns=['Category'], errors='ignore'), use_container_width=True)
     
-    # UPI simulation
     with st.expander("📲 Send Money via UPI"):
         with st.form("upi_form"):
             recipient_upi_id = st.text_input("Recipient UPI ID", "merchant@okbank")
@@ -210,7 +204,6 @@ def page_account_summary():
                     st.session_state.upi_details = {"recipient": recipient_upi_id, "amount": amount, "debit_account": debit_account}
                     st.rerun()
     if st.session_state.get('upi_pin_prompt', False):
-        # ... UPI PIN logic remains the same
         details = st.session_state.upi_details
         st.subheader("Confirm Transaction")
         pin = st.text_input("Enter your 4-digit UPI PIN", type="password", max_chars=4)
@@ -230,7 +223,6 @@ def page_cards_and_loans():
 
 def page_investments():
     st.header("💹 Investment Hub")
-    # ... (code for this page is unchanged)
     mf_data = [{"name": "Nifty 50 Index Fund", "category": "Index Fund", "risk": "Moderate", "desc": "Invests in India's top 50 companies."}, {"name": "ELSS Tax Saver Fund", "category": "Tax Saver (ELSS)", "risk": "Moderately High", "desc": "Offers tax benefits under Section 80C with a 3-year lock-in."}, {"name": "Gold Fund", "category": "Commodity", "risk": "Low to Moderate", "desc": "A smart way to invest in gold digitally."}]
     etf_data = [{"name": "Nifty 50 ETF", "category": "Equity Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index at a very low cost."}, {"name": "Gold BEES ETF", "category": "Commodity", "risk": "Low to Moderate", "desc": "Invests in physical gold."}, {"name": "IT BEES ETF", "category": "Sectoral", "risk": "High", "desc": "Focuses on top Indian IT companies."}]
     tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
@@ -243,7 +235,6 @@ def page_investments():
 
 def page_calculators():
     st.header("🧮 Financial Calculators")
-    # ... (code for this page is unchanged)
     tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
     with tab1:
         st.subheader("Systematic Investment Plan (SIP) Calculator")
@@ -285,11 +276,7 @@ def show_login_page(df):
     st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # --- Dynamic Customer Login ---
-    # We use Mobile Number as the password for this simulation
     customer_creds = dict(zip(df['LoginUserID'], df['MobileNumber'].astype(str)))
-    
-    # --- Static Employee Login ---
     employee_creds = {"admin": "password123"}
 
     col1, col2 = st.columns(2)
@@ -315,7 +302,6 @@ def show_login_page(df):
                 if cust_user_id in customer_creds and cust_pass == customer_creds[cust_user_id]:
                     st.session_state.logged_in = True
                     st.session_state.user_type = "Customer"
-                    # Store the entire row of customer data in session state
                     st.session_state.customer_data = df[df['LoginUserID'] == cust_user_id].iloc[0].to_dict()
                     st.session_state.username = st.session_state.customer_data['FirstName']
                     st.rerun()
@@ -368,7 +354,8 @@ def show_customer_portal():
 def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     
-    DATA_PATH = "data/bank_data_pii.csv"
+    # --- IMPORTANT: Point this to your new data file ---
+    DATA_PATH = "data/bank_data_final.csv"
     df = load_data(DATA_PATH)
 
     if df is not None:
