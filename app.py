@@ -308,28 +308,50 @@ def page_calculators():
         retirement_corpus = future_monthly_expenses * 12 * 25
         st.metric("Estimated Retirement Corpus Needed", f"₹{retirement_corpus:,.0f}")
 
-def page_health_check():
-    st.header("❤️ Financial Health Check")
-    st.markdown("Answer a few questions to get your financial health score and personalized tips.")
-    with st.form("health_check_form"):
-        st.subheader("Your Financial Habits")
-        q1 = st.radio("How much of your monthly income do you save?", ["Less than 10%", "10% - 20%", "20% - 30%", "More than 30%"], index=1)
-        q2 = st.radio("Do you have an emergency fund covering 3-6 months of expenses?", ["No", "Partially", "Yes"], index=1)
-        q3 = st.radio("How do you manage your credit card debt?", ["I don't have a credit card", "I pay the minimum due", "I pay in full every month"], index=2)
-        q4 = st.radio("Do you have health and life insurance coverage?", ["None", "Only one", "Both"], index=1)
-        if st.form_submit_button("Calculate My Score"):
-            score = 0
-            score += {"Less than 10%": 1, "10% - 20%": 2, "20% - 30%": 3, "More than 30%": 4}[q1]
-            score += {"No": 1, "Partially": 2, "Yes": 3}[q2]
-            score += {"I don't have a credit card": 3, "I pay the minimum due": 1, "I pay in full every month": 4}[q3]
-            score += {"None": 1, "Only one": 2, "Both": 3}[q4]
-            total_score = (score / 14) * 100
-            st.subheader("Your Financial Health Score")
-            st.metric("Score", f"{total_score:.0f} / 100")
-            st.progress(int(total_score))
-            if total_score > 80: st.success("Excellent! You have strong financial habits.")
-            elif total_score > 50: st.warning("Good, but there's room for improvement. Focus on building your emergency fund and increasing savings.")
-            else: st.error("Needs Attention. It's time to prioritize creating a budget and a plan for savings and insurance.")
+def page_financial_health():
+    st.header("❤️ Automatic Financial Health Analysis")
+    st.markdown("Our AI automatically analyzes your profile to generate your financial health score and personalized recommendations.")
+    
+    customer_data = st.session_state.customer_data
+    score = 0
+    pro_tips = []
+
+    # 1. Savings Score (Max 40)
+    balance = customer_data['balance']
+    if balance > 500000: score += 40; pro_tips.append("Your savings are excellent! Consider moving surplus cash to investments for better growth.")
+    elif balance > 200000: score += 30; pro_tips.append("You have a good savings base. It's a great time to start a goal-based SIP.")
+    elif balance > 50000: score += 20; pro_tips.append("You're on the right track! Focus on building an emergency fund covering 3-6 months of expenses.")
+    else: score += 10; pro_tips.append("Your top priority should be to build a consistent saving habit. Start with a small recurring deposit.")
+
+    # 2. Debt Score (Max 30)
+    if customer_data['loan'] == 'no' and customer_data['housing'] == 'no': score += 30
+    elif customer_data['loan'] == 'yes' and customer_data['housing'] == 'yes': score += 10; pro_tips.append("Managing multiple loans can be challenging. Consider strategies for debt consolidation or prepayment.")
+    else: score += 20; pro_tips.append("You are managing your loans well. Ensure you are paying your EMIs on time to maintain a good credit score.")
+
+    # 3. Investment Score (Max 30)
+    if any(goal['invested'] > 0 for goal in st.session_state.goals) or st.session_state.bots['round_up_pot'] > 0: score += 30
+    else: score += 10; pro_tips.append("You have not yet started investing. Activate our 'Algo Savings' bots to begin your investment journey with small, automated steps.")
+    
+    # Display Score
+    st.subheader("Your Financial Health Score")
+    col1, col2 = st.columns([1,2])
+    with col1:
+        st.metric("Score", f"{score:.0f} / 100")
+        if score > 80: st.success("Status: Excellent")
+        elif score > 50: st.warning("Status: Good")
+        else: st.error("Status: Needs Attention")
+    with col2:
+        if score > 80:
+            st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #28a745; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        elif score > 50:
+            st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #ffc107; text-align: right; color: black; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #dc3545; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.subheader("💡 AI-Powered Pro-Tips")
+    for tip in pro_tips[:3]: # Show top 3 tips
+        st.info(tip, icon="🧠")
 
 # --- Centralized Session State Initialization ---
 def initialize_customer_session(customer_data):
@@ -419,7 +441,7 @@ def show_customer_portal():
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username}!")
         st.markdown("---")
-        selection = st.radio("Go to", ["🏠 Account Summary", "🤖 Algo Savings", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health Check"])
+        selection = st.radio("Go to", ["🏠 Account Summary", "🤖 Algo Savings", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health"])
         st.markdown("---")
         if st.button("Logout"):
             for key in list(st.session_state.keys()): del st.session_state[key]
@@ -429,7 +451,7 @@ def show_customer_portal():
     elif selection == "💳 Cards & Loans": page_cards_and_loans()
     elif selection == "💹 Investment Hub": page_investments()
     elif selection == "🧮 Financial Calculators": page_calculators()
-    elif selection == "❤️ Financial Health Check": page_health_check()
+    elif selection == "❤️ Financial Health": page_financial_health()
 
 # --- Main App ---
 def main():
