@@ -56,10 +56,11 @@ def train_model(df):
     pipeline.fit(X, y)
     return pipeline, X.columns
 
-# --- All Page Functions (Defined Globally) ---
+# --- All Page Functions ---
 
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
+    # ... (code is unchanged)
     st.subheader("Key Performance Indicators (KPIs)")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Customers", f"{df.shape[0]:,}")
@@ -77,6 +78,7 @@ def page_analytics(df):
 
 def page_employee_bots(df):
     st.header("🤖 AI Bot Console")
+    # ... (code is unchanged)
     st.markdown("Activate intelligent bots to automate and enhance your workflow.")
     col1, col2 = st.columns(2)
     with col1:
@@ -93,8 +95,7 @@ def page_employee_bots(df):
             st.subheader("🎯 Daily Lead Bot")
             st.write("Generates a fresh, prioritized list of the top 5 customers to contact today for term deposit campaigns.")
             if st.button("Generate Today's Leads"):
-                model = st.session_state.model
-                model_columns = st.session_state.model_columns
+                model = st.session_state.model; model_columns = st.session_state.model_columns
                 unsubscribed_df = df[df['y'] == 'no'].copy()
                 leads_to_predict = unsubscribed_df[model_columns]
                 predictions = model.predict_proba(leads_to_predict)[:, 1]
@@ -106,6 +107,7 @@ def page_employee_bots(df):
 
 def page_customer_360(df, model, model_columns):
     st.header("👤 Customer 360° View")
+    # ... (code is unchanged)
     df['DisplayName'] = df['FirstName'] + ' ' + df['LastName'] + ' (ID: ' + df['CustomerID'].astype(str) + ')'
     selected_customer_name = st.selectbox("Select Customer", df['DisplayName'])
     if selected_customer_name:
@@ -132,6 +134,7 @@ def page_customer_360(df, model, model_columns):
 def page_account_summary():
     customer_data = st.session_state.customer_data
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
+    # ... (code is unchanged)
     st.subheader("Your Account Details")
     col1, col2 = st.columns(2)
     with col1: st.text_input("Account Number", value=customer_data['AccountNumber'], disabled=True)
@@ -176,27 +179,59 @@ def page_account_summary():
 def page_algo_bots():
     st.header("🤖 Algo Savings & Investment Bots")
     st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
+    
+    # --- NEW: Live "My Bot Portfolio" Section ---
+    st.subheader("My Bot Portfolio")
+    with st.container(border=True):
+        total_invested = st.session_state.bots['round_up_pot'] + sum(g['invested'] for g in st.session_state.goals)
+        total_value = st.session_state.bots['round_up_value'] + sum(g['value'] for g in st.session_state.goals)
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Amount Invested", f"₹{total_invested:,.2f}")
+        col2.metric("Current Portfolio Value", f"₹{total_value:,.2f}")
+        
+        if st.button("Simulate 1 Month of Investing"):
+            # Simulate Round-Up growth
+            st.session_state.bots['round_up_pot'] += random.uniform(150, 400)
+            st.session_state.bots['round_up_value'] = st.session_state.bots['round_up_pot'] * random.uniform(1.01, 1.03) # Simulate small growth
+            # Simulate SIP growth
+            for goal in st.session_state.goals:
+                goal['invested'] += goal['sip']
+                goal['value'] += goal['sip'] * random.uniform(1.0, 1.05) # Simulate monthly return
+            st.toast("Simulated one month of automated investing!", icon="📈"); st.rerun()
+
+        # Display Individual Bot Investments
+        st.markdown("---")
+        if st.session_state.bots['round_up']:
+            st.write(f"💰 **Round-Up Savings (Liquid Fund):** Current Value **₹{st.session_state.bots['round_up_value']:,.2f}**")
+        
+        for goal in st.session_state.goals:
+            progress = min(goal['value'] / goal['target'], 1.0) if goal['target'] > 0 else 0
+            st.write(f"🎯 **Goal: {goal['name']}** - Current Value **₹{goal['value']:,.2f}** / ₹{goal['target']:,}")
+            st.progress(progress)
+            
+    st.markdown("---")
+    st.subheader("Activate & Manage Bots")
+    
+    # Bot 1: Round-Up Savings
     with st.container(border=True):
         col1, col2 = st.columns([3, 1])
         with col1:
             st.subheader("💰 Round-Up Savings Bot")
-            st.write("Automatically rounds up your daily spends to the nearest ₹10 or ₹50 and invests the change into a liquid fund.")
+            st.write("Automatically rounds up your daily spends and invests the change.")
             is_active = st.session_state.bots["round_up"]
             if is_active:
                 if st.button("Deactivate Round-Up Bot"):
                     st.session_state.bots["round_up"] = False; st.toast("Round-Up Bot deactivated.", icon="⏸️"); st.rerun()
-                if st.button("Simulate 1 Day of Spends"):
-                    spends = [random.uniform(5, 500) for _ in range(5)]
-                    rounded_up = sum([10 - (s % 10) for s in spends])
-                    st.session_state.bots["round_up_pot"] += rounded_up
-                    st.toast(f"₹{rounded_up:.2f} added to your pot!", icon="💰"); st.rerun()
             else:
                 if st.button("Activate Round-Up Bot"):
                     st.session_state.bots["round_up"] = True; st.toast("Round-Up Bot activated!", icon="🚀"); st.rerun()
         with col2:
-            st.metric("Your Round-Up Pot", f"₹{st.session_state.bots['round_up_pot']:.2f}")
-            if st.session_state.bots["round_up"]: st.success("✅ ACTIVE")
+            st.write("") # Spacer
+            if is_active: st.success("✅ ACTIVE")
             else: st.info("INACTIVE")
+
+    # Bot 2: Goal-Based SIP
     with st.container(border=True):
         st.subheader("🎯 Goal-Based SIP Bot")
         st.write("Define your financial goals, and this bot will calculate the required SIP and help you start.")
@@ -208,14 +243,16 @@ def page_algo_bots():
         col1, col2 = st.columns([2,1])
         with col1:
             st.metric(f"Required Monthly SIP for '{goal}'", f"₹{monthly_sip:,.0f}")
-            st.info("Suggestion: A Flexi Cap or Index Fund would be suitable for this goal horizon.", icon="💡")
         with col2:
             if st.button("🚀 Start this SIP Plan", use_container_width=True):
-                st.success(f"Congratulations! Your SIP of ₹{monthly_sip:,.0f}/month for '{goal}' has been simulated.")
-                st.balloons()
+                new_goal = {"name": goal, "target": target_amount, "sip": monthly_sip, "invested": 0, "value": 0}
+                st.session_state.goals.append(new_goal)
+                st.success(f"Your SIP for '{goal}' is now active and tracked in your portfolio!"); st.balloons(); st.rerun()
+
 
 def page_cards_and_loans():
     st.header("💳 Cards & Loans")
+    # ... (code for this page is unchanged)
     st.subheader("Your Credit Card Summary")
     card = st.session_state.card_details
     col1, col2, col3 = st.columns(3)
@@ -241,6 +278,7 @@ def page_cards_and_loans():
 
 def page_investments():
     st.header("💹 Investment Hub")
+    # ... (code for this page is unchanged)
     mf_data = [{"name": "Parag Parikh Flexi Cap Fund", "category": "Flexi Cap", "risk": "Moderately High", "desc": "A popular choice for its diversified portfolio across domestic and international equities."}, {"name": "SBI Contra ESG Fund", "category": "Thematic - ESG", "risk": "High", "desc": "Invests in companies with strong Environmental, Social, and Governance (ESG) scores, following a contrarian strategy."}, {"name": "Quant Small Cap Fund", "category": "Small Cap", "risk": "Very High", "desc": "Known for its aggressive, high-growth strategy in the small-cap segment, suitable for high-risk investors."}]
     etf_data = [{"name": "Nifty 50 BEES ETF", "category": "Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index, offering a simple, low-cost way to invest in India's top companies."}, {"name": "Mirae Asset Nifty EV & New Age Automotive ETF", "category": "Thematic", "risk": "High", "desc": "Provides exposure to the rapidly growing Electric Vehicle and new-age automotive technology sectors."}, {"name": "ICICI Prudential Silver ETF", "category": "Commodity", "risk": "High", "desc": "Invests in physical silver, offering a hedge against inflation and a play on industrial demand."}]
     tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
@@ -255,6 +293,7 @@ def page_investments():
 
 def page_calculators():
     st.header("🧮 Financial Calculators")
+    # ... (code for this page is unchanged)
     tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
     with tab1:
         st.subheader("Systematic Investment Plan (SIP) Calculator")
@@ -293,6 +332,7 @@ def page_calculators():
 
 def page_health_check():
     st.header("❤️ Financial Health Check")
+    # ... (code for this page is unchanged)
     st.markdown("Answer a few questions to get your financial health score and personalized tips.")
     with st.form("health_check_form"):
         st.subheader("Your Financial Habits")
@@ -311,10 +351,10 @@ def page_health_check():
             st.metric("Score", f"{total_score:.0f} / 100")
             st.progress(int(total_score))
             if total_score > 80: st.success("Excellent! You have strong financial habits.")
-            elif total_score > 50: st.warning("Good, but there's room for improvement. Focus on building your emergency fund and increasing savings.")
-            else: st.error("Needs Attention. It's time to prioritize creating a budget and a plan for savings and insurance.")
+            elif total_score > 50: st.warning("Good, but there's room for improvement.")
+            else: st.error("Needs Attention. It's time to prioritize creating a budget and a plan for savings.")
 
-# --- ** NEW ** Centralized Session State Initialization ---
+# --- Centralized Session State Initialization ---
 def initialize_customer_session(customer_data):
     """Initializes all necessary session state variables for a customer login."""
     st.session_state.logged_in = True
@@ -322,22 +362,15 @@ def initialize_customer_session(customer_data):
     st.session_state.customer_data = customer_data
     st.session_state.username = customer_data['FirstName']
     
-    # Initialize accounts based on job type
-    if customer_data['job'] == 'student':
-        st.session_state.accounts = {"Savings": customer_data['balance']}
-    else:
-        st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
+    if customer_data['job'] == 'student': st.session_state.accounts = {"Savings": customer_data['balance']}
+    else: st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
     
-    # Initialize transactions
     st.session_state.transactions = [
         {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"},
         {"Date": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
     ]
-    
-    # Initialize bots
-    st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0}
-    
-    # Initialize card details
+    st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0, "round_up_value": 0.0}
+    st.session_state.goals = []
     st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
 
 # --- Login & Portal Logic ---
@@ -365,7 +398,7 @@ def show_login_page(df):
                 if st.form_submit_button("Login as Customer"):
                     if cust_user_id in customer_creds and cust_pass == customer_creds[cust_user_id]:
                         customer_data = df[df['LoginUserID'] == cust_user_id].iloc[0].to_dict()
-                        initialize_customer_session(customer_data) # Use centralized initializer
+                        initialize_customer_session(customer_data)
                         st.toast(f"Welcome, {st.session_state.username}!", icon="👋"); st.rerun()
                     else: st.error("Invalid Login ID or Password")
     with create_account_tab:
