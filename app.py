@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Function to Load Custom CSS ---
+# --- Robust File Loading Functions ---
 @st.cache_data
 def load_css(file_name):
     """Loads a CSS file from the same directory as the script."""
@@ -25,10 +25,9 @@ def load_css(file_name):
     except FileNotFoundError:
         st.error("Error: The 'style.css' file was not found. Please ensure it is in the main project directory.")
 
-# --- Asset Caching ---
 @st.cache_data
 def load_data(path):
-    # ... (code unchanged)
+    """Loads the dataset from a path relative to the script."""
     try:
         return pd.read_csv(path)
     except FileNotFoundError:
@@ -40,7 +39,7 @@ def load_data(path):
 
 @st.cache_resource
 def train_model(df):
-    # ... (code unchanged)
+    """Trains the model, EXCLUDING personal identifiable information (PII)."""
     from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
@@ -57,7 +56,8 @@ def train_model(df):
     pipeline.fit(X, y)
     return pipeline, X.columns
 
-# --- Employee Portal Pages ---
+# --- All Page Functions (Defined Globally) ---
+
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
     st.subheader("Key Performance Indicators (KPIs)")
@@ -129,7 +129,6 @@ def page_customer_360(df, model, model_columns):
             if prediction_proba > 0.5: st.success("HIGH-potential lead. Recommend contacting soon.")
             else: st.warning("LOW-potential lead. Nurture with general offers.")
 
-# --- Customer Portal Pages ---
 def page_account_summary():
     customer_data = st.session_state.customer_data
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
@@ -185,11 +184,8 @@ def page_account_summary():
 def page_algo_bots():
     st.header("🤖 Algo Savings & Investment Bots")
     st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
-    
-    # ** FIX: Initialize all required bot states correctly **
     if 'bots' not in st.session_state:
         st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0}
-
     with st.container(border=True):
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -211,7 +207,6 @@ def page_algo_bots():
             st.metric("Your Round-Up Pot", f"₹{st.session_state.bots['round_up_pot']:.2f}")
             if st.session_state.bots["round_up"]: st.success("✅ ACTIVE")
             else: st.info("INACTIVE")
-    
     with st.container(border=True):
         st.subheader("🎯 Goal-Based SIP Bot")
         st.write("Define your financial goals, and this bot will calculate the required SIP and help you start.")
@@ -228,6 +223,108 @@ def page_algo_bots():
             if st.button("🚀 Start this SIP Plan", use_container_width=True):
                 st.success(f"Congratulations! Your SIP of ₹{monthly_sip:,.0f}/month for '{goal}' has been simulated.")
                 st.balloons()
+
+def page_cards_and_loans():
+    st.header("💳 Cards & Loans")
+    if 'card_details' not in st.session_state:
+        st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
+    st.subheader("Your Credit Card Summary")
+    card = st.session_state.card_details
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Credit Limit", f"₹{card['limit']:,.2f}")
+    col2.metric("Outstanding Amount", f"₹{card['outstanding']:,.2f}")
+    utilization = (card['outstanding'] / card['limit']) if card['limit'] > 0 else 0
+    col3.metric("Credit Utilization", f"{utilization:.1%}")
+    st.progress(utilization)
+    if card['outstanding'] > 0.01:
+        with st.form("card_payment_form"):
+            st.subheader("Make a Card Payment")
+            payment_amount = st.number_input("Amount to Pay (₹)", min_value=0.01, max_value=card['outstanding'], value=card['outstanding'])
+            payment_account = st.selectbox("Pay from Account", list(st.session_state.accounts.keys()))
+            if st.form_submit_button("Pay Credit Card Bill"):
+                if payment_amount > st.session_state.accounts[payment_account]: st.error("Insufficient balance.")
+                else:
+                    st.session_state.accounts[payment_account] -= payment_amount
+                    st.session_state.card_details['outstanding'] -= payment_amount
+                    new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": "Credit Card Bill Payment", "Amount (₹)": -payment_amount, "Category": "Bills"}
+                    st.session_state.transactions.insert(0, new_tx)
+                    st.toast("✅ Card payment successful!", icon="💳"); st.rerun()
+    else: st.success("🎉 Your credit card bill is fully paid!")
+
+def page_investments():
+    st.header("💹 Investment Hub")
+    mf_data = [{"name": "Parag Parikh Flexi Cap Fund", "category": "Flexi Cap", "risk": "Moderately High", "desc": "A popular choice for its diversified portfolio across domestic and international equities."}, {"name": "SBI Contra ESG Fund", "category": "Thematic - ESG", "risk": "High", "desc": "Invests in companies with strong Environmental, Social, and Governance (ESG) scores, following a contrarian strategy."}, {"name": "Quant Small Cap Fund", "category": "Small Cap", "risk": "Very High", "desc": "Known for its aggressive, high-growth strategy in the small-cap segment, suitable for high-risk investors."}]
+    etf_data = [{"name": "Nifty 50 BEES ETF", "category": "Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index, offering a simple, low-cost way to invest in India's top companies."}, {"name": "Mirae Asset Nifty EV & New Age Automotive ETF", "category": "Thematic", "risk": "High", "desc": "Provides exposure to the rapidly growing Electric Vehicle and new-age automotive technology sectors."}, {"name": "ICICI Prudential Silver ETF", "category": "Commodity", "risk": "High", "desc": "Invests in physical silver, offering a hedge against inflation and a play on industrial demand."}]
+    tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
+    with tab1:
+        st.subheader("Top Mutual Funds for SIP in 2025")
+        for mf in mf_data:
+            with st.container(border=True): st.markdown(f"**{mf['name']}**\n\n*{mf['category']}* | **Risk:** `{mf['risk']}`\n\n{mf['desc']}")
+    with tab2:
+        st.subheader("Top ETFs to Buy in 2025")
+        for etf in etf_data:
+            with st.container(border=True): st.markdown(f"**{etf['name']}**\n\n*{etf['category']}* | **Risk:** `{etf['risk']}`\n\n{etf['desc']}")
+
+def page_calculators():
+    st.header("🧮 Financial Calculators")
+    tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
+    with tab1:
+        st.subheader("Systematic Investment Plan (SIP) Calculator")
+        monthly_investment = st.slider("Monthly Investment (₹)", 1000, 100000, 5000, key="sip_inv")
+        expected_return = st.slider("Expected Annual Return (%)", 1.0, 30.0, 12.0, 0.5, key="sip_ret")
+        investment_period = st.slider("Investment Period (Years)", 1, 30, 10, key="sip_yrs")
+        invested_amount = monthly_investment * investment_period * 12
+        i = (expected_return / 100) / 12
+        n = investment_period * 12
+        future_value = monthly_investment * (((1 + i)**n - 1) / i) * (1 + i)
+        col1, col2 = st.columns(2)
+        col1.metric("Total Invested Amount", f"₹{invested_amount:,.0f}")
+        col2.metric("Projected Future Value", f"₹{future_value:,.0f}")
+    with tab2:
+        st.subheader("Equated Monthly Instalment (EMI) Calculator")
+        loan_amount = st.number_input("Loan Amount (₹)", 10000, 10000000, 500000)
+        interest_rate = st.slider("Annual Interest Rate (%)", 1.0, 20.0, 8.5, 0.1)
+        loan_tenure = st.slider("Loan Tenure (Years)", 1, 30, 5)
+        r = (interest_rate / 100) / 12
+        n = loan_tenure * 12
+        emi = (loan_amount * r * (1 + r)**n) / ((1 + r)**n - 1)
+        total_payment = emi * n
+        col1, col2 = st.columns(2)
+        col1.metric("Monthly EMI Payment", f"₹{emi:,.2f}")
+        col2.metric("Total Payment", f"₹{total_payment:,.0f}")
+    with tab3:
+        st.subheader("Retirement Corpus Planner")
+        current_age = st.slider("Your Current Age", 18, 60, 30)
+        retirement_age = st.slider("Target Retirement Age", 50, 70, 60)
+        monthly_expenses = st.number_input("Current Monthly Expenses (₹)", 5000, 200000, 30000)
+        expected_inflation = st.slider("Expected Inflation Rate (%)", 1.0, 10.0, 6.0, 0.5)
+        years_to_retire = retirement_age - current_age
+        future_monthly_expenses = monthly_expenses * (1 + expected_inflation / 100)**years_to_retire
+        retirement_corpus = future_monthly_expenses * 12 * 25
+        st.metric("Estimated Retirement Corpus Needed", f"₹{retirement_corpus:,.0f}")
+
+def page_health_check():
+    st.header("❤️ Financial Health Check")
+    st.markdown("Answer a few questions to get your financial health score and personalized tips.")
+    with st.form("health_check_form"):
+        st.subheader("Your Financial Habits")
+        q1 = st.radio("How much of your monthly income do you save?", ["Less than 10%", "10% - 20%", "20% - 30%", "More than 30%"], index=1)
+        q2 = st.radio("Do you have an emergency fund covering 3-6 months of expenses?", ["No", "Partially", "Yes"], index=1)
+        q3 = st.radio("How do you manage your credit card debt?", ["I don't have a credit card", "I pay the minimum due", "I pay in full every month"], index=2)
+        q4 = st.radio("Do you have health and life insurance coverage?", ["None", "Only one", "Both"], index=1)
+        if st.form_submit_button("Calculate My Score"):
+            score = 0
+            score += {"Less than 10%": 1, "10% - 20%": 2, "20% - 30%": 3, "More than 30%": 4}[q1]
+            score += {"No": 1, "Partially": 2, "Yes": 3}[q2]
+            score += {"I don't have a credit card": 3, "I pay the minimum due": 1, "I pay in full every month": 4}[q3]
+            score += {"None": 1, "Only one": 2, "Both": 3}[q4]
+            total_score = (score / 14) * 100
+            st.subheader("Your Financial Health Score")
+            st.metric("Score", f"{total_score:.0f} / 100")
+            st.progress(int(total_score))
+            if total_score > 80: st.success("Excellent! You have strong financial habits.")
+            elif total_score > 50: st.warning("Good, but there's room for improvement. Focus on building your emergency fund and increasing savings.")
+            else: st.error("Needs Attention. It's time to prioritize creating a budget and a plan for savings and insurance.")
 
 # --- Login & Portal Logic ---
 def show_login_page(df):
