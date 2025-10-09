@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="FinanSage AI Portal",
     page_icon="🔐",
     layout="wide",
-    initial_sidebar_state="expanded" # Start expanded for better UX
+    initial_sidebar_state="expanded"
 )
 
 # --- Function to Load Custom CSS (Robust Path) ---
@@ -56,8 +56,7 @@ def train_model(df):
     pipeline.fit(X, y)
     return pipeline, X.columns
 
-# --- All Page Functions (Defined Globally) ---
-
+# --- Employee Portal Pages ---
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
     st.subheader("Key Performance Indicators (KPIs)")
@@ -72,8 +71,10 @@ def page_analytics(df):
     st.markdown("---")
     st.subheader("Customer Demographics")
     col1, col2 = st.columns(2)
-    with col1: st.plotly_chart(px.histogram(df, x='age', nbins=40, title='Age Distribution'), use_container_width=True)
-    with col2: st.plotly_chart(px.bar(df['job'].value_counts().reset_index(), x='job', y='count', title='Job Distribution'), use_container_width=True)
+    with col1:
+        st.plotly_chart(px.histogram(df, x='age', nbins=40, title='Age Distribution'), use_container_width=True)
+    with col2:
+        st.plotly_chart(px.bar(df['job'].value_counts().reset_index(), x='job', y='count', title='Job Distribution'), use_container_width=True)
 
 def page_prediction(df, model_pipeline, model_columns):
     st.header("🔮 Subscription Propensity AI")
@@ -160,6 +161,7 @@ def page_lead_finder(df, model, model_columns):
                  use_container_width=True,
                  column_config={"Subscription Likelihood": st.column_config.ProgressColumn("Likelihood", format="%.2f", min_value=0, max_value=1)})
 
+# --- Customer Portal Pages ---
 def page_account_summary():
     customer_data = st.session_state.customer_data
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
@@ -170,7 +172,6 @@ def page_account_summary():
     col1, col2 = st.columns(2)
     with col1: st.text_input("Account Number", value=customer_data['AccountNumber'], disabled=True)
     with col2: st.text_input("IFSC Code", value=customer_data['IFSCCode'], disabled=True)
-    # ... (Rest of the page logic is unchanged)
     st.subheader("Account Balances")
     cols = st.columns(len(st.session_state.accounts))
     for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()): cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
@@ -213,13 +214,108 @@ def page_account_summary():
     st.subheader("Recent Transactions")
     st.dataframe(pd.DataFrame(st.session_state.transactions), use_container_width=True)
 
-def page_cards_and_loans(): st.header("💳 Cards & Loans"); st.info("This feature is coming soon!")
-def page_investments(): st.header("💹 Investment Hub"); st.info("This feature is coming soon!")
-def page_calculators(): st.header("🧮 Financial Calculators"); st.info("This feature is coming soon!")
+def page_cards_and_loans():
+    st.header("💳 Cards & Loans")
+    if 'card_details' not in st.session_state:
+        st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
+    st.subheader("Your Credit Card Summary")
+    card = st.session_state.card_details
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Credit Limit", f"₹{card['limit']:,.2f}")
+    col2.metric("Outstanding Amount", f"₹{card['outstanding']:,.2f}")
+    utilization = (card['outstanding'] / card['limit']) if card['limit'] > 0 else 0
+    col3.metric("Credit Utilization", f"{utilization:.1%}")
+    st.progress(utilization)
+    if card['outstanding'] > 0.01:
+        with st.form("card_payment_form"):
+            st.subheader("Make a Card Payment")
+            payment_amount = st.number_input("Amount to Pay (₹)", min_value=0.01, max_value=card['outstanding'], value=card['outstanding'])
+            payment_account = st.selectbox("Pay from Account", list(st.session_state.accounts.keys()))
+            if st.form_submit_button("Pay Credit Card Bill"):
+                if payment_amount > st.session_state.accounts[payment_account]: st.error("Insufficient balance.")
+                else:
+                    st.session_state.accounts[payment_account] -= payment_amount
+                    st.session_state.card_details['outstanding'] -= payment_amount
+                    new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": "Credit Card Bill Payment", "Amount (₹)": -payment_amount, "Category": "Bills"}
+                    st.session_state.transactions.insert(0, new_tx)
+                    st.toast("✅ Card payment successful!", icon="💳"); st.rerun()
+    else: st.success("🎉 Your credit card bill is fully paid!")
+
+def page_investments():
+    st.header("💹 Investment Hub")
+    mf_data = [{"name": "Nifty 50 Index Fund", "category": "Index Fund", "risk": "Moderate", "desc": "Invests in India's top 50 companies."}, {"name": "ELSS Tax Saver Fund", "category": "Tax Saver (ELSS)", "risk": "Moderately High", "desc": "Offers tax benefits under Section 80C with a 3-year lock-in."}, {"name": "Gold Fund", "category": "Commodity", "risk": "Low to Moderate", "desc": "A smart way to invest in gold digitally."}]
+    etf_data = [{"name": "Nifty 50 ETF", "category": "Equity Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index at a very low cost."}, {"name": "Gold BEES ETF", "category": "Commodity", "risk": "Low to Moderate", "desc": "Invests in physical gold."}, {"name": "IT BEES ETF", "category": "Sectoral", "risk": "High", "desc": "Focuses on top Indian IT companies."}]
+    tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
+    with tab1:
+        for mf in mf_data:
+            with st.container(border=True): st.markdown(f"**{mf['name']}**\n\n*{mf['category']}* | **Risk:** `{mf['risk']}`\n\n{mf['desc']}")
+    with tab2:
+        for etf in etf_data:
+            with st.container(border=True): st.markdown(f"**{etf['name']}**\n\n*{etf['category']}* | **Risk:** `{etf['risk']}`\n\n{etf['desc']}")
+
+def page_calculators():
+    st.header("🧮 Financial Calculators")
+    tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
+    with tab1:
+        st.subheader("Systematic Investment Plan (SIP) Calculator")
+        monthly_investment = st.slider("Monthly Investment (₹)", 1000, 100000, 5000)
+        expected_return = st.slider("Expected Annual Return (%)", 1.0, 30.0, 12.0, 0.5)
+        investment_period = st.slider("Investment Period (Years)", 1, 30, 10)
+        invested_amount = monthly_investment * investment_period * 12
+        i = (expected_return / 100) / 12
+        n = investment_period * 12
+        future_value = monthly_investment * (((1 + i)**n - 1) / i) * (1 + i)
+        col1, col2 = st.columns(2)
+        col1.metric("Total Invested Amount", f"₹{invested_amount:,.0f}")
+        col2.metric("Projected Future Value", f"₹{future_value:,.0f}")
+    with tab2:
+        st.subheader("Equated Monthly Instalment (EMI) Calculator")
+        loan_amount = st.number_input("Loan Amount (₹)", 10000, 10000000, 500000)
+        interest_rate = st.slider("Annual Interest Rate (%)", 1.0, 20.0, 8.5, 0.1)
+        loan_tenure = st.slider("Loan Tenure (Years)", 1, 30, 5)
+        r = (interest_rate / 100) / 12
+        n = loan_tenure * 12
+        emi = (loan_amount * r * (1 + r)**n) / ((1 + r)**n - 1)
+        total_payment = emi * n
+        col1, col2 = st.columns(2)
+        col1.metric("Monthly EMI Payment", f"₹{emi:,.2f}")
+        col2.metric("Total Payment", f"₹{total_payment:,.0f}")
+    with tab3:
+        st.subheader("Retirement Corpus Planner")
+        current_age = st.slider("Your Current Age", 18, 60, 30)
+        retirement_age = st.slider("Target Retirement Age", 50, 70, 60)
+        monthly_expenses = st.number_input("Current Monthly Expenses (₹)", 5000, 200000, 30000)
+        expected_inflation = st.slider("Expected Inflation Rate (%)", 1.0, 10.0, 6.0, 0.5)
+        years_to_retire = retirement_age - current_age
+        future_monthly_expenses = monthly_expenses * (1 + expected_inflation / 100)**years_to_retire
+        retirement_corpus = future_monthly_expenses * 12 * 25
+        st.metric("Estimated Retirement Corpus Needed", f"₹{retirement_corpus:,.0f}")
+
+def page_health_check():
+    st.header("❤️ Financial Health Check")
+    st.markdown("Answer a few questions to get your financial health score and personalized tips.")
+    with st.form("health_check_form"):
+        st.subheader("Your Financial Habits")
+        q1 = st.radio("How much of your monthly income do you save?", ["Less than 10%", "10% - 20%", "20% - 30%", "More than 30%"], index=1)
+        q2 = st.radio("Do you have an emergency fund covering 3-6 months of expenses?", ["No", "Partially", "Yes"], index=1)
+        q3 = st.radio("How do you manage your credit card debt?", ["I don't have a credit card", "I pay the minimum due", "I pay in full every month"], index=2)
+        q4 = st.radio("Do you have health and life insurance coverage?", ["None", "Only one", "Both"], index=1)
+        if st.form_submit_button("Calculate My Score"):
+            score = 0
+            score += {"Less than 10%": 1, "10% - 20%": 2, "20% - 30%": 3, "More than 30%": 4}[q1]
+            score += {"No": 1, "Partially": 2, "Yes": 3}[q2]
+            score += {"I don't have a credit card": 3, "I pay the minimum due": 1, "I pay in full every month": 4}[q3]
+            score += {"None": 1, "Only one": 2, "Both": 3}[q4]
+            total_score = (score / 14) * 100
+            st.subheader("Your Financial Health Score")
+            st.metric("Score", f"{total_score:.0f} / 100")
+            st.progress(int(total_score))
+            if total_score > 80: st.success("Excellent! You have strong financial habits.")
+            elif total_score > 50: st.warning("Good, but there's room for improvement. Focus on building your emergency fund and increasing savings.")
+            else: st.error("Needs Attention. It's time to prioritize creating a budget and a plan for savings and insurance.")
 
 # --- Login & Portal Logic ---
 def show_login_page(df):
-    # ... (code for this page is unchanged)
     st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
     st.markdown("---")
     customer_creds = dict(zip(df['LoginUserID'], df['MobileNumber'].astype(str)))
@@ -248,7 +344,6 @@ def show_login_page(df):
                 else: st.error("Invalid Login ID or Password")
 
 def show_employee_portal(df, model, model_columns):
-    # This function is now much simpler and robust
     st.title(f"🏢 Employee Portal")
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username.capitalize()}!")
@@ -258,47 +353,40 @@ def show_employee_portal(df, model, model_columns):
         st.metric("Conversion Rate", "18.5%")
         st.progress(0.73, text="Monthly Target (73%)")
         st.markdown("---")
-        
         selection = st.radio("Go to", ["📈 Customer Analytics", "👤 Customer 360° View", "🎯 AI Lead Finder", "✨ Festive Offers"])
         st.markdown("---")
         if st.button("Logout"):
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
-    
-    # Call the selected page function with all required arguments
     if selection == "📈 Customer Analytics": page_analytics(df)
     elif selection == "👤 Customer 360° View": page_customer_360(df, model, model_columns)
     elif selection == "🎯 AI Lead Finder": page_lead_finder(df, model, model_columns)
     elif selection == "✨ Festive Offers": page_bank_offers()
 
 def show_customer_portal():
-    # This function is now much simpler
     st.title(f"👤 Customer Portal")
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username}!")
         st.markdown("---")
-        selection = st.radio("Go to", ["🏠 Account Summary", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators"])
+        selection = st.radio("Go to", ["🏠 Account Summary", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health Check"])
         st.markdown("---")
         if st.button("Logout"):
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
-
     if selection == "🏠 Account Summary": page_account_summary()
     elif selection == "💳 Cards & Loans": page_cards_and_loans()
     elif selection == "💹 Investment Hub": page_investments()
     elif selection == "🧮 Financial Calculators": page_calculators()
+    elif selection == "❤️ Financial Health Check": page_health_check()
 
 # --- Main App ---
 def main():
-    # Load CSS at the very beginning
     load_css("style.css")
-
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     
     DATA_PATH = "data/bank_data_final.csv"
     df = load_data(DATA_PATH)
     
-    # Apply theme class and theme toggle
     theme_class = "dark-mode" if st.session_state.get('theme', 'light') == 'dark' else 'light-mode'
     st.markdown(f'<div class="main-container {theme_class}">', unsafe_allow_html=True)
 
@@ -306,12 +394,10 @@ def main():
         st.markdown("---")
         if st.toggle('🌙 Dark Mode', value=(st.session_state.get('theme', 'light') == 'dark')):
             if st.session_state.get('theme') != 'dark':
-                st.session_state.theme = 'dark'
-                st.rerun()
+                st.session_state.theme = 'dark'; st.rerun()
         else:
             if st.session_state.get('theme') != 'light':
-                st.session_state.theme = 'light'
-                st.rerun()
+                st.session_state.theme = 'light'; st.rerun()
 
     if df is not None:
         if st.session_state.logged_in:
