@@ -14,18 +14,20 @@ st.set_page_config(
 
 # --- Asset Caching ---
 @st.cache_data
-def load_data(url):
-    """Loads the dataset from the specified GitHub URL with caching."""
+def load_data(path):
+    """Loads the dataset from the specified local path with caching."""
     try:
-        raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
-        return pd.read_csv(raw_url)
+        return pd.read_csv(path)
+    except FileNotFoundError:
+        st.error(f"Error: The data file was not found at '{path}'. Please ensure 'bank_data_pii.csv' is in the 'data' folder.")
+        return None
     except Exception as e:
-        st.error(f"Error loading data from URL: {e}")
+        st.error(f"An error occurred while loading the data: {e}")
         return None
 
 @st.cache_resource
 def train_model(df):
-    """Trains the model on the provided dataframe and returns the pipeline."""
+    """Trains the model, EXCLUDING personal identifiable information (PII)."""
     from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
@@ -33,7 +35,10 @@ def train_model(df):
 
     df_copy = df.copy()
     df_copy['y'] = df_copy['y'].map({'yes': 1, 'no': 0})
-    X = df_copy.drop('y', axis=1)
+    
+    # --- CRITICAL STEP: Exclude PII from training data ---
+    pii_columns = ['CustomerID', 'FirstName', 'LastName', 'MobileNumber', 'Email', 'Address']
+    X = df_copy.drop(columns=pii_columns + ['y'])
     y = df_copy['y']
     
     numerical_features = X.select_dtypes(include=['int64', 'float64']).columns
@@ -50,7 +55,7 @@ def train_model(df):
         ('classifier', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42))
     ])
     pipeline.fit(X, y)
-    return pipeline
+    return pipeline, X.columns # Return trained model AND the columns it was trained on
 
 # --- Employee Portal Pages ---
 def page_analytics(df):
@@ -72,9 +77,8 @@ def page_analytics(df):
     with col2:
         st.plotly_chart(px.bar(df['job'].value_counts().reset_index(), x='job', y='count', title='Job Distribution'), use_container_width=True)
 
-def page_prediction(df, model_pipeline):
+def page_prediction(df, model_pipeline, model_columns):
     st.header("🔮 Subscription Propensity AI")
-    
     with st.form("prediction_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -89,23 +93,14 @@ def page_prediction(df, model_pipeline):
             housing = st.selectbox("Has Housing Loan?", ["no", "yes"])
             loan = st.selectbox("Has Personal Loan?", ["no", "yes"])
             campaign = st.number_input("Number of Contacts in Campaign", 1, 100, 1)
-        
         if st.form_submit_button("🧠 Predict Likelihood"):
-            # Create a dictionary for the new data
             input_data_dict = {
                 'age': [age], 'job': [job], 'marital': [marital], 'education': [education],
                 'balance': [balance], 'housing': [housing], 'loan': [loan], 'campaign': [campaign]
             }
             input_df = pd.DataFrame(input_data_dict)
-
-            # ** FIX 1: Robustly ensure column order and presence **
-            # Get the columns the model was trained on (all except 'y')
-            model_features = df.drop('y', axis=1).columns
-            # Reindex the input dataframe to match the training data's structure
-            input_df_reordered = input_df.reindex(columns=model_features, fill_value=0)
-
+            input_df_reordered = input_df.reindex(columns=model_columns, fill_value=0)
             prediction_proba = model_pipeline.predict_proba(input_df_reordered)[0][1]
-            
             st.subheader("Prediction Result")
             col1, col2 = st.columns([1, 2])
             with col1:
@@ -135,28 +130,28 @@ def page_bank_offers():
         </div>
         """, unsafe_allow_html=True)
 
-def page_lead_finder(df, model):
+def page_lead_finder(df, model, model_columns):
     st.header("🎯 AI Lead Finder")
-    st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit.")
+    st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit. Use this list to focus your marketing efforts.")
     
     unsubscribed_df = df[df['y'] == 'no'].copy()
     
-    # ** FIX 2: Drop the target variable 'y' before predicting **
-    leads_to_predict = unsubscribed_df.drop('y', axis=1)
-    
+    # Predict only on the columns the model was trained on
+    leads_to_predict = unsubscribed_df[model_columns]
     predictions = model.predict_proba(leads_to_predict)[:, 1]
     unsubscribed_df['Subscription Likelihood'] = predictions
     
     prioritized_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False)
     
-    st.dataframe(prioritized_leads[['age', 'job', 'marital', 'balance', 'Subscription Likelihood']],
+    # Display actionable contact information along with the prediction
+    st.dataframe(prioritized_leads[['FirstName', 'LastName', 'MobileNumber', 'age', 'job', 'balance', 'Subscription Likelihood']],
                  use_container_width=True,
                  column_config={"Subscription Likelihood": st.column_config.ProgressColumn("Likelihood", format="%.2f", min_value=0, max_value=1)})
 
 # --- Customer Portal Pages ---
+# ... (All customer portal pages: page_account_summary, page_cards_and_loans, page_investments, page_calculators remain exactly the same as the previous version)
 def page_account_summary():
     st.header(f"Welcome Back, {st.session_state.username.capitalize()}!")
-    # ... (code for this page remains the same)
     if 'accounts' not in st.session_state:
         st.session_state.accounts = {"Checking": 85450.75, "Savings": 312500.50}
     if 'transactions' not in st.session_state:
@@ -216,7 +211,6 @@ def page_account_summary():
 
 def page_cards_and_loans():
     st.header("💳 Cards & Loans")
-    # ... (code for this page remains the same)
     if 'card_details' not in st.session_state:
         st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
     st.subheader("Your Credit Card Summary")
@@ -243,7 +237,6 @@ def page_cards_and_loans():
 
 def page_investments():
     st.header("💹 Investment Hub")
-    # ... (code for this page remains the same)
     mf_data = [{"name": "Nifty 50 Index Fund", "category": "Index Fund", "risk": "Moderate", "desc": "Invests in India's top 50 companies."}, {"name": "ELSS Tax Saver Fund", "category": "Tax Saver (ELSS)", "risk": "Moderately High", "desc": "Offers tax benefits under Section 80C with a 3-year lock-in."}, {"name": "Gold Fund", "category": "Commodity", "risk": "Low to Moderate", "desc": "A smart way to invest in gold digitally."}]
     etf_data = [{"name": "Nifty 50 ETF", "category": "Equity Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index at a very low cost."}, {"name": "Gold BEES ETF", "category": "Commodity", "risk": "Low to Moderate", "desc": "Invests in physical gold."}, {"name": "IT BEES ETF", "category": "Sectoral", "risk": "High", "desc": "Focuses on top Indian IT companies."}]
     tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
@@ -256,7 +249,6 @@ def page_investments():
 
 def page_calculators():
     st.header("🧮 Financial Calculators")
-    # ... (code for this page remains the same)
     tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
     with tab1:
         st.subheader("Systematic Investment Plan (SIP) Calculator")
@@ -320,11 +312,10 @@ def show_login_page():
                     st.session_state.logged_in = True; st.session_state.user_type = "Customer"; st.session_state.username = cust_user; st.rerun()
                 else: st.error("Invalid username or password")
 
-def show_employee_portal(df, model):
+def show_employee_portal(df, model, model_columns):
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username.capitalize()}!")
         st.markdown("---")
-        # Employee Performance Metrics
         st.subheader("Your Performance")
         st.metric("Subscriptions Secured (Month)", "22")
         st.metric("Conversion Rate", "18.5%")
@@ -333,8 +324,8 @@ def show_employee_portal(df, model):
         
         page_options = { 
             "📈 Customer Analytics": lambda: page_analytics(df), 
-            "🔮 Propensity AI": lambda: page_prediction(df, model), 
-            "🎯 AI Lead Finder": lambda: page_lead_finder(df, model),
+            "🔮 Propensity AI": lambda: page_prediction(df, model, model_columns), 
+            "🎯 AI Lead Finder": lambda: page_lead_finder(df, model, model_columns),
             "✨ Festive Offers": page_bank_offers
         }
         selection = st.radio("Go to", list(page_options.keys()))
@@ -367,14 +358,14 @@ def show_customer_portal():
 def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     
-    DATA_URL = "https://github.com/saumyasanghvi03/bank-term-deposit-pred/blob/main/bank_data.csv"
+    DATA_PATH = "data/bank_data_pii.csv"
 
     if st.session_state.logged_in:
         if st.session_state.user_type == "Employee":
-            df = load_data(DATA_URL)
+            df = load_data(DATA_PATH)
             if df is not None:
-                model_pipeline = train_model(df)
-                show_employee_portal(df, model_pipeline)
+                model_pipeline, model_columns = train_model(df)
+                show_employee_portal(df, model_pipeline, model_columns)
         else:
             show_customer_portal()
     else:
