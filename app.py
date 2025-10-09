@@ -132,9 +132,6 @@ def page_customer_360(df, model, model_columns):
 def page_account_summary():
     customer_data = st.session_state.customer_data
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
-    if 'accounts' not in st.session_state:
-        if customer_data['job'] == 'student': st.session_state.accounts = {"Savings": customer_data['balance']}
-        else: st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
     st.subheader("Your Account Details")
     col1, col2 = st.columns(2)
     with col1: st.text_input("Account Number", value=customer_data['AccountNumber'], disabled=True)
@@ -142,11 +139,6 @@ def page_account_summary():
     st.subheader("Account Balances")
     cols = st.columns(len(st.session_state.accounts))
     for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()): cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
-    if 'transactions' not in st.session_state:
-        st.session_state.transactions = [
-            {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"},
-            {"Date": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
-        ]
     st.markdown("---")
     st.subheader("Quick Actions")
     col1, col2 = st.columns(2)
@@ -184,8 +176,6 @@ def page_account_summary():
 def page_algo_bots():
     st.header("🤖 Algo Savings & Investment Bots")
     st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
-    if 'bots' not in st.session_state:
-        st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0}
     with st.container(border=True):
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -226,8 +216,6 @@ def page_algo_bots():
 
 def page_cards_and_loans():
     st.header("💳 Cards & Loans")
-    if 'card_details' not in st.session_state:
-        st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
     st.subheader("Your Credit Card Summary")
     card = st.session_state.card_details
     col1, col2, col3 = st.columns(3)
@@ -326,6 +314,32 @@ def page_health_check():
             elif total_score > 50: st.warning("Good, but there's room for improvement. Focus on building your emergency fund and increasing savings.")
             else: st.error("Needs Attention. It's time to prioritize creating a budget and a plan for savings and insurance.")
 
+# --- ** NEW ** Centralized Session State Initialization ---
+def initialize_customer_session(customer_data):
+    """Initializes all necessary session state variables for a customer login."""
+    st.session_state.logged_in = True
+    st.session_state.user_type = "Customer"
+    st.session_state.customer_data = customer_data
+    st.session_state.username = customer_data['FirstName']
+    
+    # Initialize accounts based on job type
+    if customer_data['job'] == 'student':
+        st.session_state.accounts = {"Savings": customer_data['balance']}
+    else:
+        st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
+    
+    # Initialize transactions
+    st.session_state.transactions = [
+        {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"},
+        {"Date": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
+    ]
+    
+    # Initialize bots
+    st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0}
+    
+    # Initialize card details
+    st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
+
 # --- Login & Portal Logic ---
 def show_login_page(df):
     st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
@@ -350,9 +364,8 @@ def show_login_page(df):
                 cust_pass = st.text_input("Password (use Mobile Number)", type="password", value="+91 9820012345")
                 if st.form_submit_button("Login as Customer"):
                     if cust_user_id in customer_creds and cust_pass == customer_creds[cust_user_id]:
-                        st.session_state.logged_in = True; st.session_state.user_type = "Customer";
-                        st.session_state.customer_data = df[df['LoginUserID'] == cust_user_id].iloc[0].to_dict()
-                        st.session_state.username = st.session_state.customer_data['FirstName']
+                        customer_data = df[df['LoginUserID'] == cust_user_id].iloc[0].to_dict()
+                        initialize_customer_session(customer_data) # Use centralized initializer
                         st.toast(f"Welcome, {st.session_state.username}!", icon="👋"); st.rerun()
                     else: st.error("Invalid Login ID or Password")
     with create_account_tab:
