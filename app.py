@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Function to Load Custom CSS (Robust Path) ---
+# --- Function to Load Custom CSS ---
 @st.cache_data
 def load_css(file_name):
     """Loads a CSS file from the same directory as the script."""
@@ -24,10 +24,10 @@ def load_css(file_name):
     except FileNotFoundError:
         st.error("Error: The 'style.css' file was not found. Please ensure it is in the main project directory.")
 
-# --- Asset Caching (Robust Path) ---
+# --- Asset Caching ---
 @st.cache_data
 def load_data(path):
-    """Loads the dataset from a path relative to the script."""
+    # ... (code unchanged)
     try:
         return pd.read_csv(path)
     except FileNotFoundError:
@@ -39,7 +39,7 @@ def load_data(path):
 
 @st.cache_resource
 def train_model(df):
-    """Trains the model, EXCLUDING personal identifiable information (PII)."""
+    # ... (code unchanged)
     from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
@@ -59,6 +59,7 @@ def train_model(df):
 # --- Employee Portal Pages ---
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
+    # ... (code unchanged)
     st.subheader("Key Performance Indicators (KPIs)")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Customers", f"{df.shape[0]:,}")
@@ -76,8 +77,10 @@ def page_analytics(df):
     with col2:
         st.plotly_chart(px.bar(df['job'].value_counts().reset_index(), x='job', y='count', title='Job Distribution'), use_container_width=True)
 
+
 def page_prediction(df, model_pipeline, model_columns):
     st.header("🔮 Subscription Propensity AI")
+    # ... (code unchanged)
     with st.form("prediction_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -109,6 +112,7 @@ def page_prediction(df, model_pipeline, model_columns):
 
 def page_bank_offers():
     st.header("✨ Festive Offers for Diwali 2025 ✨")
+    # ... (code unchanged)
     offers = [
         {"title": "Dhanteras Gold Rush", "icon": "🪙", "rate": "Instant 5% Cashback", "benefit": "On Gold Jewellery & Coin Loans", "description": "Celebrate Dhanteras with a personal loan for gold purchases with zero processing fees and 5% cashback on the loan amount."},
         {"title": "Diwali Wheels of Joy", "icon": "🚗", "rate": "Starting at 8.25%", "benefit": "Zero Down Payment on Car Loans", "description": "Our special car loan offer comes with a rock-bottom interest rate and a zero down payment option for approved customers."},
@@ -126,6 +130,7 @@ def page_bank_offers():
 
 def page_customer_360(df, model, model_columns):
     st.header("👤 Customer 360° View")
+    # ... (code unchanged)
     df['DisplayName'] = df['FirstName'] + ' ' + df['LastName'] + ' (ID: ' + df['CustomerID'].astype(str) + ')'
     selected_customer_name = st.selectbox("Select Customer", df['DisplayName'])
     if selected_customer_name:
@@ -151,7 +156,7 @@ def page_customer_360(df, model, model_columns):
 
 def page_lead_finder(df, model, model_columns):
     st.header("🎯 AI Lead Finder")
-    st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit.")
+    # ... (code unchanged)
     unsubscribed_df = df[df['y'] == 'no'].copy()
     leads_to_predict = unsubscribed_df[model_columns]
     predictions = model.predict_proba(leads_to_predict)[:, 1]
@@ -163,6 +168,7 @@ def page_lead_finder(df, model, model_columns):
 
 # --- Customer Portal Pages ---
 def page_account_summary():
+    # ... (code for this page is unchanged)
     customer_data = st.session_state.customer_data
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
     if 'accounts' not in st.session_state:
@@ -243,13 +249,24 @@ def page_cards_and_loans():
 
 def page_investments():
     st.header("💹 Investment Hub")
-    mf_data = [{"name": "Nifty 50 Index Fund", "category": "Index Fund", "risk": "Moderate", "desc": "Invests in India's top 50 companies."}, {"name": "ELSS Tax Saver Fund", "category": "Tax Saver (ELSS)", "risk": "Moderately High", "desc": "Offers tax benefits under Section 80C with a 3-year lock-in."}, {"name": "Gold Fund", "category": "Commodity", "risk": "Low to Moderate", "desc": "A smart way to invest in gold digitally."}]
-    etf_data = [{"name": "Nifty 50 ETF", "category": "Equity Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index at a very low cost."}, {"name": "Gold BEES ETF", "category": "Commodity", "risk": "Low to Moderate", "desc": "Invests in physical gold."}, {"name": "IT BEES ETF", "category": "Sectoral", "risk": "High", "desc": "Focuses on top Indian IT companies."}]
+    st.markdown("Explore curated investment opportunities for late 2025. *For demonstration purposes only. Not financial advice.*")
+    mf_data = [
+        {"name": "Parag Parikh Flexi Cap Fund", "category": "Flexi Cap", "risk": "Moderately High", "desc": "A popular choice for its diversified portfolio across domestic and international equities."},
+        {"name": "SBI Contra ESG Fund", "category": "Thematic - ESG", "risk": "High", "desc": "Invests in companies with strong Environmental, Social, and Governance (ESG) scores, following a contrarian strategy."},
+        {"name": "Quant Small Cap Fund", "category": "Small Cap", "risk": "Very High", "desc": "Known for its aggressive, high-growth strategy in the small-cap segment, suitable for high-risk investors."}
+    ]
+    etf_data = [
+        {"name": "Nifty 50 BEES ETF", "category": "Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index, offering a simple, low-cost way to invest in India's top companies."},
+        {"name": "Mirae Asset Nifty EV & New Age Automotive ETF", "category": "Thematic", "risk": "High", "desc": "Provides exposure to the rapidly growing Electric Vehicle and new-age automotive technology sectors."},
+        {"name": "ICICI Prudential Silver ETF", "category": "Commodity", "risk": "High", "desc": "Invests in physical silver, offering a hedge against inflation and a play on industrial demand."}
+    ]
     tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
     with tab1:
+        st.subheader("Top Mutual Funds for SIP in 2025")
         for mf in mf_data:
             with st.container(border=True): st.markdown(f"**{mf['name']}**\n\n*{mf['category']}* | **Risk:** `{mf['risk']}`\n\n{mf['desc']}")
     with tab2:
+        st.subheader("Top ETFs to Buy in 2025")
         for etf in etf_data:
             with st.container(border=True): st.markdown(f"**{etf['name']}**\n\n*{etf['category']}* | **Risk:** `{etf['risk']}`\n\n{etf['desc']}")
 
@@ -258,9 +275,9 @@ def page_calculators():
     tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
     with tab1:
         st.subheader("Systematic Investment Plan (SIP) Calculator")
-        monthly_investment = st.slider("Monthly Investment (₹)", 1000, 100000, 5000)
-        expected_return = st.slider("Expected Annual Return (%)", 1.0, 30.0, 12.0, 0.5)
-        investment_period = st.slider("Investment Period (Years)", 1, 30, 10)
+        monthly_investment = st.slider("Monthly Investment (₹)", 1000, 100000, 5000, key="sip_inv")
+        expected_return = st.slider("Expected Annual Return (%)", 1.0, 30.0, 12.0, 0.5, key="sip_ret")
+        investment_period = st.slider("Investment Period (Years)", 1, 30, 10, key="sip_yrs")
         invested_amount = monthly_investment * investment_period * 12
         i = (expected_return / 100) / 12
         n = investment_period * 12
@@ -291,31 +308,77 @@ def page_calculators():
         retirement_corpus = future_monthly_expenses * 12 * 25
         st.metric("Estimated Retirement Corpus Needed", f"₹{retirement_corpus:,.0f}")
 
-def page_health_check():
-    st.header("❤️ Financial Health Check")
-    st.markdown("Answer a few questions to get your financial health score and personalized tips.")
-    with st.form("health_check_form"):
-        st.subheader("Your Financial Habits")
-        q1 = st.radio("How much of your monthly income do you save?", ["Less than 10%", "10% - 20%", "20% - 30%", "More than 30%"], index=1)
-        q2 = st.radio("Do you have an emergency fund covering 3-6 months of expenses?", ["No", "Partially", "Yes"], index=1)
-        q3 = st.radio("How do you manage your credit card debt?", ["I don't have a credit card", "I pay the minimum due", "I pay in full every month"], index=2)
-        q4 = st.radio("Do you have health and life insurance coverage?", ["None", "Only one", "Both"], index=1)
-        if st.form_submit_button("Calculate My Score"):
-            score = 0
-            score += {"Less than 10%": 1, "10% - 20%": 2, "20% - 30%": 3, "More than 30%": 4}[q1]
-            score += {"No": 1, "Partially": 2, "Yes": 3}[q2]
-            score += {"I don't have a credit card": 3, "I pay the minimum due": 1, "I pay in full every month": 4}[q3]
-            score += {"None": 1, "Only one": 2, "Both": 3}[q4]
-            total_score = (score / 14) * 100
-            st.subheader("Your Financial Health Score")
-            st.metric("Score", f"{total_score:.0f} / 100")
-            st.progress(int(total_score))
-            if total_score > 80: st.success("Excellent! You have strong financial habits.")
-            elif total_score > 50: st.warning("Good, but there's room for improvement. Focus on building your emergency fund and increasing savings.")
-            else: st.error("Needs Attention. It's time to prioritize creating a budget and a plan for savings and insurance.")
+def page_algo_bots():
+    st.header("🤖 Algo Savings & Investment Bots")
+    st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
+    
+    # Initialize bot states
+    if 'bots' not in st.session_state:
+        st.session_state.bots = {"round_up": False, "smart_transfer": False}
+
+    # Bot 1: Round-Up Savings
+    with st.container(border=True):
+        st.subheader("💰 Round-Up Savings Bot")
+        st.write("Automatically rounds up your daily spends to the nearest ₹10 or ₹50 and invests the change into a liquid fund.")
+        
+        is_active = st.session_state.bots["round_up"]
+        if is_active:
+            st.success("✅ This bot is currently ACTIVE.")
+            if st.button("Deactivate Round-Up Bot"):
+                st.session_state.bots["round_up"] = False
+                st.toast("Round-Up Bot deactivated.", icon="⏸️"); st.rerun()
+        else:
+            st.info("This bot is currently INACTIVE.")
+            if st.button("Activate Round-Up Bot"):
+                st.session_state.bots["round_up"] = True
+                st.toast("Round-Up Bot activated!", icon="🚀"); st.rerun()
+
+    # Bot 2: Goal-Based SIP
+    with st.container(border=True):
+        st.subheader("🎯 Goal-Based SIP Bot")
+        st.write("Define your financial goals, and this bot will calculate the required SIP and suggest a suitable fund.")
+        goal = st.text_input("What is your financial goal?", "Vacation to Europe")
+        target_amount = st.number_input("Target Amount (₹)", min_value=10000, max_value=10000000, value=500000)
+        target_year = st.slider("Target Year", datetime.now().year + 1, datetime.now().year + 20, datetime.now().year + 5)
+        
+        years_to_go = target_year - datetime.now().year
+        # Simple SIP calculation (assuming 12% return)
+        monthly_sip = (target_amount * (0.12/12)) / (((1 + 0.12/12)**(years_to_go*12)) - 1)
+        st.metric(f"Required Monthly SIP for '{goal}'", f"₹{monthly_sip:,.0f}")
+        st.info("Suggestion: A Flexi Cap or Index Fund would be suitable for this goal horizon.", icon="💡")
+
+    # Bot 3 & 4
+    col1, col2 = st.columns(2)
+    with col1:
+        with st.container(border=True):
+            st.subheader("📈 Smart Transfer Bot")
+            st.write("Automatically move surplus funds from your Checking to Savings account at month-end to earn more interest.")
+            is_active = st.session_state.bots["smart_transfer"]
+            if is_active:
+                st.success("✅ This bot is ACTIVE.")
+                if st.button("Deactivate Smart Transfer"):
+                    st.session_state.bots["smart_transfer"] = False
+                    st.toast("Smart Transfer deactivated.", icon="⏸️"); st.rerun()
+            else:
+                st.info("This bot is INACTIVE.")
+                if st.button("Activate Smart Transfer"):
+                    st.session_state.bots["smart_transfer"] = True
+                    st.toast("Smart Transfer activated!", icon="🚀"); st.rerun()
+
+    with col2:
+        with st.container(border=True):
+            st.subheader("🧾 Tax Saver Bot (ELSS)")
+            st.write("Calculates your remaining Section 80C limit and helps you invest in an ELSS fund to save taxes.")
+            invested_80c = st.number_input("Amount already invested under 80C this year (₹)", min_value=0, max_value=150000, value=70000)
+            remaining_limit = 150000 - invested_80c
+            if remaining_limit > 0:
+                st.metric("Remaining 80C Investment to Save Tax", f"₹{remaining_limit:,.0f}")
+            else:
+                st.success("You have already maxed out your 80C limit!")
 
 # --- Login & Portal Logic ---
 def show_login_page(df):
+    # ... (code for this page is unchanged)
     st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
     st.markdown("---")
     customer_creds = dict(zip(df['LoginUserID'], df['MobileNumber'].astype(str)))
@@ -344,6 +407,7 @@ def show_login_page(df):
                 else: st.error("Invalid Login ID or Password")
 
 def show_employee_portal(df, model, model_columns):
+    # ... (code for this function is unchanged)
     st.title(f"🏢 Employee Portal")
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username.capitalize()}!")
@@ -368,7 +432,7 @@ def show_customer_portal():
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username}!")
         st.markdown("---")
-        selection = st.radio("Go to", ["🏠 Account Summary", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health Check"])
+        selection = st.radio("Go to", ["🏠 Account Summary", "💳 Cards & Loans", "💹 Investment Hub", "🤖 Algo Investing", "🧮 Financial Calculators", "❤️ Financial Health Check"])
         st.markdown("---")
         if st.button("Logout"):
             for key in list(st.session_state.keys()): del st.session_state[key]
@@ -376,6 +440,7 @@ def show_customer_portal():
     if selection == "🏠 Account Summary": page_account_summary()
     elif selection == "💳 Cards & Loans": page_cards_and_loans()
     elif selection == "💹 Investment Hub": page_investments()
+    elif selection == "🤖 Algo Investing": page_algo_bots()
     elif selection == "🧮 Financial Calculators": page_calculators()
     elif selection == "❤️ Financial Health Check": page_health_check()
 
@@ -393,11 +458,9 @@ def main():
     with st.sidebar:
         st.markdown("---")
         if st.toggle('🌙 Dark Mode', value=(st.session_state.get('theme', 'light') == 'dark')):
-            if st.session_state.get('theme') != 'dark':
-                st.session_state.theme = 'dark'; st.rerun()
+            if st.session_state.get('theme') != 'dark': st.session_state.theme = 'dark'; st.rerun()
         else:
-            if st.session_state.get('theme') != 'light':
-                st.session_state.theme = 'light'; st.rerun()
+            if st.session_state.get('theme') != 'light': st.session_state.theme = 'light'; st.rerun()
 
     if df is not None:
         if st.session_state.logged_in:
