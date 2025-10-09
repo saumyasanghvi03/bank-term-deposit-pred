@@ -58,6 +58,37 @@ def train_model(df):
 
 # --- All Page Functions (Defined Globally) ---
 
+def page_ai_copilot(df, model, model_columns):
+    st.header("🤖 AI Co-Pilot")
+    st.markdown(f"**Friday, October 10, 2025 | 1:09 AM**")
+    st.info("Here are your AI-powered priorities for today to maximize efficiency and results.", icon="🚀")
+
+    # Task 1: High-Propensity Lead
+    unsubscribed_df = df[df['y'] == 'no'].copy()
+    leads_to_predict = unsubscribed_df[model_columns]
+    predictions = model.predict_proba(leads_to_predict)[:, 1]
+    unsubscribed_df['Subscription Likelihood'] = predictions
+    top_lead = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False).iloc[0]
+    
+    with st.container(border=True):
+        st.subheader("🎯 High-Propensity Follow-up")
+        st.write(f"Contact **{top_lead['FirstName']} {top_lead['LastName']}**. Our AI gives them an **{top_lead['Subscription Likelihood']:.0%} probability** of subscribing to a Term Deposit.")
+        st.info(f"**Suggestion:** Pitch the 'Diwali Dhamaka FD' offer, as their balance is high (₹{top_lead['balance']:,}).", icon="💡")
+
+    # Task 2: Churn Prevention
+    at_risk_customer = df[df['balance'] < 10000].iloc[0]
+    with st.container(border=True):
+        st.subheader("🔔 Churn Prevention Alert")
+        st.write(f"**{at_risk_customer['FirstName']} {at_risk_customer['LastName']}'s** account balance dropped to **₹{at_risk_customer['balance']:,}**. They are now an at-risk customer.")
+        st.warning("**Suggestion:** Call to offer a personal loan or discuss investment options for their remaining funds to show support.", icon="🚨")
+    
+    # Task 3: Cross-Sell Opportunity
+    cross_sell_customer = df[(df['housing'] == 'yes') & (df['y'] == 'no')].iloc[0]
+    with st.container(border=True):
+        st.subheader("🔗 Cross-Sell Opportunity")
+        st.write(f"**{cross_sell_customer['FirstName']} {cross_sell_customer['LastName']}** has an active home loan with us but hasn't invested in a term deposit.")
+        st.success("**Suggestion:** Offer them a small, high-yield Fixed Deposit as a secure investment alongside their loan.", icon="🤝")
+
 def page_analytics(df):
     st.header("📊 Customer Analytics Dashboard")
     st.subheader("Key Performance Indicators (KPIs)")
@@ -75,104 +106,83 @@ def page_analytics(df):
     with col1: st.plotly_chart(px.histogram(df, x='age', nbins=40, title='Age Distribution'), use_container_width=True)
     with col2: st.plotly_chart(px.bar(df['job'].value_counts().reset_index(), x='job', y='count', title='Job Distribution'), use_container_width=True)
 
-def page_employee_bots(df):
-    st.header("🤖 AI Bot Console")
-    st.markdown("Activate intelligent bots to automate and enhance your workflow.")
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.container(border=True):
-            st.subheader("🔔 At-Risk Customer Bot")
-            st.write("This bot identifies customers whose balance has dropped significantly, flagging them as potential churn risks.")
-            if st.button("Scan for At-Risk Customers"):
-                at_risk_df = df[df['balance'] < 10000].head(3)
-                st.error("High-Priority Alerts Found!")
-                for _, row in at_risk_df.iterrows():
-                    st.warning(f"**{row['FirstName']} {row['LastName']}** (Balance: ₹{row['balance']:,}) - Balance is critically low. Recommend outreach.", icon="🚨")
-    with col2:
-        with st.container(border=True):
-            st.subheader("🎯 Daily Lead Bot")
-            st.write("Generates a fresh, prioritized list of the top 5 customers to contact today for term deposit campaigns.")
-            if st.button("Generate Today's Leads"):
-                model = st.session_state.model; model_columns = st.session_state.model_columns
-                unsubscribed_df = df[df['y'] == 'no'].copy()
-                leads_to_predict = unsubscribed_df[model_columns]
-                predictions = model.predict_proba(leads_to_predict)[:, 1]
-                unsubscribed_df['Subscription Likelihood'] = predictions
-                top_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False).head(5)
-                st.success("Today's Top 5 Leads Generated!")
-                for _, row in top_leads.iterrows():
-                    st.info(f"**{row['FirstName']} {row['LastName']}** (Phone: {row['MobileNumber']}) - Likelihood: **{row['Subscription Likelihood']:.1%}**", icon="📞")
-
-def page_customer_360(df, model, model_columns):
-    st.header("👤 Customer 360° View")
-    df['DisplayName'] = df['FirstName'] + ' ' + df['LastName'] + ' (ID: ' + df['CustomerID'].astype(str) + ')'
-    selected_customer_name = st.selectbox("Select Customer", df['DisplayName'])
-    if selected_customer_name:
-        customer_data = df[df['DisplayName'] == selected_customer_name].iloc[0]
-        st.subheader(f"Profile: {customer_data['FirstName']} {customer_data['LastName']}")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.text_input("Mobile Number", customer_data['MobileNumber'], disabled=True)
-            st.text_input("Email", customer_data['Email'], disabled=True)
-        with col2:
-            st.text_input("Job", customer_data['job'], disabled=True)
-            st.text_input("Account Balance (₹)", f"{customer_data['balance']:,}", disabled=True)
-        st.markdown("---")
-        st.subheader("AI Propensity Score")
-        customer_to_predict = customer_data[model_columns].to_frame().T
-        prediction_proba = model.predict_proba(customer_to_predict)[0][1]
-        col1, col2 = st.columns([1,2])
-        with col1: st.metric("Term Deposit Subscription Likelihood", f"{prediction_proba:.1%}")
-        with col2:
-            st.progress(float(prediction_proba))
-            if prediction_proba > 0.5: st.success("HIGH-potential lead. Recommend contacting soon.")
-            else: st.warning("LOW-potential lead. Nurture with general offers.")
-
 def page_account_summary():
     customer_data = st.session_state.customer_data
+    zen_mode = st.session_state.get('zen_mode', False)
+
     st.header(f"Welcome Back, {customer_data['FirstName']}!")
+    
     st.subheader("Your Account Details")
     col1, col2 = st.columns(2)
     with col1: st.text_input("Account Number", value=customer_data['AccountNumber'], disabled=True)
     with col2: st.text_input("IFSC Code", value=customer_data['IFSCCode'], disabled=True)
+    
     st.subheader("Account Balances")
-    cols = st.columns(len(st.session_state.accounts))
-    for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()): cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
+    if zen_mode:
+        st.info("🧘 Zen Mode is active. Balances are hidden to promote financial peace of mind.", icon="✨")
+        cols = st.columns(len(st.session_state.accounts))
+        affirmations = ["You're on track!", "Your savings are growing.", "Keep up the great work!"]
+        for i, acc_name in enumerate(st.session_state.accounts.keys()):
+            cols[i].metric(acc_name, affirmations[i % len(affirmations)])
+    else:
+        cols = st.columns(len(st.session_state.accounts))
+        for i, (acc_name, acc_balance) in enumerate(st.session_state.accounts.items()): cols[i].metric(acc_name, f"₹{acc_balance:,.2f}")
+    
     st.markdown("---")
-    st.subheader("Quick Actions")
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.expander("📲 Send Money via UPI"):
-            with st.form("upi_form", clear_on_submit=True):
-                recipient_upi_id = st.text_input("Recipient UPI ID", "merchant@okbank")
-                amount = st.number_input("Amount (₹)", min_value=1.0, step=10.0)
-                debit_account = st.selectbox("From Account", list(st.session_state.accounts.keys()), key="upi_debit")
-                if st.form_submit_button("Send via UPI"):
-                    if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
-                    else:
-                        st.session_state.accounts[debit_account] -= amount
-                        new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Payments"}
-                        st.session_state.transactions.insert(0, new_tx)
-                        st.toast(f"✅ ₹{amount} sent successfully!", icon="🎉"); st.rerun()
-    with col2:
-        with st.expander("🏦 Within-Bank Transfer"):
-            with st.form("transfer_form", clear_on_submit=True):
-                recipient_list = st.session_state.all_customers[st.session_state.all_customers['CustomerID'] != customer_data['CustomerID']]
-                recipient_name = st.selectbox("Select Recipient", recipient_list['FirstName'] + ' ' + recipient_list['LastName'])
-                amount = st.number_input("Amount (₹)", min_value=1.0, step=100.0)
-                debit_account = st.selectbox("From Account", list(st.session_state.accounts.keys()), key="transfer_debit")
-                if st.form_submit_button("Transfer Money"):
-                    if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
-                    else:
-                        st.session_state.accounts[debit_account] -= amount
-                        new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount, "Category": "Transfers"}
-                        st.session_state.transactions.insert(0, new_tx)
-                        st.toast(f"✅ ₹{amount} transferred successfully!", icon="🎉"); st.rerun()
+    if zen_mode:
+        st.warning("Quick actions are disabled in Zen Mode to prevent impulsive decisions. Toggle Zen Mode off in the sidebar to proceed.", icon="🧘")
+    else:
+        st.subheader("Quick Actions")
+        col1, col2 = st.columns(2)
+        with col1:
+            with st.expander("📲 Send Money via UPI"):
+                with st.form("upi_form", clear_on_submit=True):
+                    recipient_upi_id = st.text_input("Recipient UPI ID", "merchant@okbank")
+                    amount = st.number_input("Amount (₹)", min_value=1.0, step=10.0)
+                    debit_account = st.selectbox("From Account", list(st.session_state.accounts.keys()), key="upi_debit")
+                    
+                    # UPI Pay Later Feature
+                    use_credit = st.checkbox("Pay using your UPI Credit Line")
+                    if use_credit:
+                        available_credit = st.session_state.card_details['limit'] - st.session_state.card_details['outstanding']
+                        st.info(f"Available Credit: ₹{available_credit:,.2f}")
+
+                    if st.form_submit_button("Send via UPI"):
+                        if use_credit:
+                            if amount > available_credit: st.error("Insufficient credit limit.")
+                            else:
+                                st.session_state.card_details['outstanding'] += amount
+                                new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"UPI on Credit to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Credit Spends"}
+                                st.session_state.transactions.insert(0, new_tx)
+                                st.toast(f"✅ ₹{amount} paid on credit!", icon="💳"); st.rerun()
+                        else:
+                            if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
+                            else:
+                                st.session_state.accounts[debit_account] -= amount
+                                new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount, "Category": "Payments"}
+                                st.session_state.transactions.insert(0, new_tx)
+                                st.toast(f"✅ ₹{amount} sent successfully!", icon="🎉"); st.rerun()
+        with col2:
+            with st.expander("🏦 Within-Bank Transfer"):
+                with st.form("transfer_form", clear_on_submit=True):
+                    # ... (form code is unchanged)
+                    recipient_list = st.session_state.all_customers[st.session_state.all_customers['CustomerID'] != customer_data['CustomerID']]
+                    recipient_name = st.selectbox("Select Recipient", recipient_list['FirstName'] + ' ' + recipient_list['LastName'])
+                    amount = st.number_input("Amount (₹)", min_value=1.0, step=100.0)
+                    debit_account = st.selectbox("From Account", list(st.session_state.accounts.keys()), key="transfer_debit")
+                    if st.form_submit_button("Transfer Money"):
+                        if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
+                        else:
+                            st.session_state.accounts[debit_account] -= amount
+                            new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount, "Category": "Transfers"}
+                            st.session_state.transactions.insert(0, new_tx)
+                            st.toast(f"✅ ₹{amount} transferred successfully!", icon="🎉"); st.rerun()
     st.markdown("---")
     st.subheader("Recent Transactions")
     st.dataframe(pd.DataFrame(st.session_state.transactions), use_container_width=True)
 
 def page_algo_bots():
+    # ... (code for this page is unchanged)
     st.header("🤖 Algo Savings & Investment Bots")
     st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
     st.subheader("My Bot Portfolio")
@@ -205,14 +215,12 @@ def page_algo_bots():
             st.write("Automatically rounds up your daily spends and invests the change.")
             is_active = st.session_state.bots["round_up"]
             if is_active:
-                if st.button("Deactivate Round-Up Bot"):
-                    st.session_state.bots["round_up"] = False; st.toast("Round-Up Bot deactivated.", icon="⏸️"); st.rerun()
+                if st.button("Deactivate Round-Up Bot"): st.session_state.bots["round_up"] = False; st.toast("Round-Up Bot deactivated.", icon="⏸️"); st.rerun()
             else:
-                if st.button("Activate Round-Up Bot"):
-                    st.session_state.bots["round_up"] = True; st.toast("Round-Up Bot activated!", icon="🚀"); st.rerun()
+                if st.button("Activate Round-Up Bot"): st.session_state.bots["round_up"] = True; st.toast("Round-Up Bot activated!", icon="🚀"); st.rerun()
         with col2:
-            st.write(""); st.write("") # Spacer
-            if st.session_state.bots["round_up"]: st.success("✅ ACTIVE")
+            st.write(""); st.write("")
+            if is_active: st.success("✅ ACTIVE")
             else: st.info("INACTIVE")
     with st.container(border=True):
         st.subheader("🎯 Goal-Based SIP Bot")
@@ -232,6 +240,7 @@ def page_algo_bots():
                 st.success(f"Your SIP for '{goal}' is now active and tracked in your portfolio!"); st.balloons(); st.rerun()
 
 def page_cards_and_loans():
+    # ... (code for this page is unchanged)
     st.header("💳 Cards & Loans")
     st.subheader("Your Credit Card Summary")
     card = st.session_state.card_details
@@ -256,83 +265,22 @@ def page_cards_and_loans():
                     st.toast("✅ Card payment successful!", icon="💳"); st.rerun()
     else: st.success("🎉 Your credit card bill is fully paid!")
 
-def page_investments():
-    st.header("💹 Investment Hub")
-    mf_data = [{"name": "Parag Parikh Flexi Cap Fund", "category": "Flexi Cap", "risk": "Moderately High", "desc": "A popular choice for its diversified portfolio across domestic and international equities."}, {"name": "SBI Contra ESG Fund", "category": "Thematic - ESG", "risk": "High", "desc": "Invests in companies with strong Environmental, Social, and Governance (ESG) scores, following a contrarian strategy."}, {"name": "Quant Small Cap Fund", "category": "Small Cap", "risk": "Very High", "desc": "Known for its aggressive, high-growth strategy in the small-cap segment, suitable for high-risk investors."}]
-    etf_data = [{"name": "Nifty 50 BEES ETF", "category": "Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index, offering a simple, low-cost way to invest in India's top companies."}, {"name": "Mirae Asset Nifty EV & New Age Automotive ETF", "category": "Thematic", "risk": "High", "desc": "Provides exposure to the rapidly growing Electric Vehicle and new-age automotive technology sectors."}, {"name": "ICICI Prudential Silver ETF", "category": "Commodity", "risk": "High", "desc": "Invests in physical silver, offering a hedge against inflation and a play on industrial demand."}]
-    tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
-    with tab1:
-        st.subheader("Top Mutual Funds for SIP in 2025")
-        for mf in mf_data:
-            with st.container(border=True): st.markdown(f"**{mf['name']}**\n\n*{mf['category']}* | **Risk:** `{mf['risk']}`\n\n{mf['desc']}")
-    with tab2:
-        st.subheader("Top ETFs to Buy in 2025")
-        for etf in etf_data:
-            with st.container(border=True): st.markdown(f"**{etf['name']}**\n\n*{etf['category']}* | **Risk:** `{etf['risk']}`\n\n{etf['desc']}")
-
-def page_calculators():
-    st.header("🧮 Financial Calculators")
-    tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
-    with tab1:
-        st.subheader("Systematic Investment Plan (SIP) Calculator")
-        monthly_investment = st.slider("Monthly Investment (₹)", 1000, 100000, 5000, key="sip_inv")
-        expected_return = st.slider("Expected Annual Return (%)", 1.0, 30.0, 12.0, 0.5, key="sip_ret")
-        investment_period = st.slider("Investment Period (Years)", 1, 30, 10, key="sip_yrs")
-        invested_amount = monthly_investment * investment_period * 12
-        i = (expected_return / 100) / 12
-        n = investment_period * 12
-        future_value = monthly_investment * (((1 + i)**n - 1) / i) * (1 + i)
-        col1, col2 = st.columns(2)
-        col1.metric("Total Invested Amount", f"₹{invested_amount:,.0f}")
-        col2.metric("Projected Future Value", f"₹{future_value:,.0f}")
-    with tab2:
-        st.subheader("Equated Monthly Instalment (EMI) Calculator")
-        loan_amount = st.number_input("Loan Amount (₹)", 10000, 10000000, 500000)
-        interest_rate = st.slider("Annual Interest Rate (%)", 1.0, 20.0, 8.5, 0.1)
-        loan_tenure = st.slider("Loan Tenure (Years)", 1, 30, 5)
-        r = (interest_rate / 100) / 12
-        n = loan_tenure * 12
-        emi = (loan_amount * r * (1 + r)**n) / ((1 + r)**n - 1)
-        total_payment = emi * n
-        col1, col2 = st.columns(2)
-        col1.metric("Monthly EMI Payment", f"₹{emi:,.2f}")
-        col2.metric("Total Payment", f"₹{total_payment:,.0f}")
-    with tab3:
-        st.subheader("Retirement Corpus Planner")
-        current_age = st.slider("Your Current Age", 18, 60, 30)
-        retirement_age = st.slider("Target Retirement Age", 50, 70, 60)
-        monthly_expenses = st.number_input("Current Monthly Expenses (₹)", 5000, 200000, 30000)
-        expected_inflation = st.slider("Expected Inflation Rate (%)", 1.0, 10.0, 6.0, 0.5)
-        years_to_retire = retirement_age - current_age
-        future_monthly_expenses = monthly_expenses * (1 + expected_inflation / 100)**years_to_retire
-        retirement_corpus = future_monthly_expenses * 12 * 25
-        st.metric("Estimated Retirement Corpus Needed", f"₹{retirement_corpus:,.0f}")
-
 def page_financial_health():
+    # ... (code for this page is unchanged)
     st.header("❤️ Automatic Financial Health Analysis")
     st.markdown("Our AI automatically analyzes your profile to generate your financial health score and personalized recommendations.")
-    
     customer_data = st.session_state.customer_data
-    score = 0
-    pro_tips = []
-
-    # 1. Savings Score (Max 40)
-    balance = customer_data['balance']
+    score = 0; pro_tips = []
+    balance = sum(st.session_state.accounts.values())
     if balance > 500000: score += 40; pro_tips.append("Your savings are excellent! Consider moving surplus cash to investments for better growth.")
     elif balance > 200000: score += 30; pro_tips.append("You have a good savings base. It's a great time to start a goal-based SIP.")
     elif balance > 50000: score += 20; pro_tips.append("You're on the right track! Focus on building an emergency fund covering 3-6 months of expenses.")
     else: score += 10; pro_tips.append("Your top priority should be to build a consistent saving habit. Start with a small recurring deposit.")
-
-    # 2. Debt Score (Max 30)
     if customer_data['loan'] == 'no' and customer_data['housing'] == 'no': score += 30
     elif customer_data['loan'] == 'yes' and customer_data['housing'] == 'yes': score += 10; pro_tips.append("Managing multiple loans can be challenging. Consider strategies for debt consolidation or prepayment.")
     else: score += 20; pro_tips.append("You are managing your loans well. Ensure you are paying your EMIs on time to maintain a good credit score.")
-
-    # 3. Investment Score (Max 30)
     if any(goal['invested'] > 0 for goal in st.session_state.goals) or st.session_state.bots['round_up_pot'] > 0: score += 30
     else: score += 10; pro_tips.append("You have not yet started investing. Activate our 'Algo Savings' bots to begin your investment journey with small, automated steps.")
-    
-    # Display Score
     st.subheader("Your Financial Health Score")
     col1, col2 = st.columns([1,2])
     with col1:
@@ -341,17 +289,12 @@ def page_financial_health():
         elif score > 50: st.warning("Status: Good")
         else: st.error("Status: Needs Attention")
     with col2:
-        if score > 80:
-            st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #28a745; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
-        elif score > 50:
-            st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #ffc107; text-align: right; color: black; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #dc3545; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
-    
+        if score > 80: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #28a745; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        elif score > 50: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #ffc107; text-align: right; color: black; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        else: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #dc3545; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
     st.markdown("---")
     st.subheader("💡 AI-Powered Pro-Tips")
-    for tip in pro_tips[:3]: # Show top 3 tips
-        st.info(tip, icon="🧠")
+    for tip in pro_tips[:3]: st.info(tip, icon="🧠")
 
 # --- Centralized Session State Initialization ---
 def initialize_customer_session(customer_data):
@@ -425,15 +368,15 @@ def show_employee_portal(df, model, model_columns):
         st.subheader("Your Performance")
         st.metric("Subscriptions Secured (Month)", "22"); st.metric("Conversion Rate", "18.5%"); st.progress(0.73, text="Monthly Target (73%)")
         st.markdown("---")
-        selection = st.radio("Go to", ["📈 Customer Analytics", "👤 Customer 360° View", "🎯 AI Lead Finder", "🤖 AI Bot Console", "✨ Festive Offers"])
+        selection = st.radio("Go to", ["🤖 AI Co-Pilot", "📈 Customer Analytics", "👤 Customer 360° View", "🎯 AI Lead Finder", "✨ Festive Offers"])
         st.markdown("---")
         if st.button("Logout"):
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
-    if selection == "📈 Customer Analytics": page_analytics(df)
+    if selection == "🤖 AI Co-Pilot": page_ai_copilot(df, model, model_columns)
+    elif selection == "📈 Customer Analytics": page_analytics(df)
     elif selection == "👤 Customer 360° View": page_customer_360(df, model, model_columns)
     elif selection == "🎯 AI Lead Finder": page_lead_finder(df, model, model_columns)
-    elif selection == "🤖 AI Bot Console": page_employee_bots(df)
     elif selection == "✨ Festive Offers": page_bank_offers()
 
 def show_customer_portal():
@@ -442,6 +385,9 @@ def show_customer_portal():
         st.markdown(f"### Welcome, {st.session_state.username}!")
         st.markdown("---")
         selection = st.radio("Go to", ["🏠 Account Summary", "🤖 Algo Savings", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health"])
+        st.markdown("---")
+        # Zen Mode Toggle
+        st.session_state.zen_mode = st.toggle('🧘 Zen Mode', value=st.session_state.get('zen_mode', False), help="Hide balances and disable transactions for a stress-free experience.")
         st.markdown("---")
         if st.button("Logout"):
             for key in list(st.session_state.keys()): del st.session_state[key]
