@@ -67,7 +67,7 @@ class FinanSageApp:
     # --- Employee Portal Pages ---
     def page_ai_copilot(self):
         st.header("🤖 AI Co-Pilot")
-        st.markdown(f"**Friday, October 10, 2025 | 12:14 PM IST**")
+        st.markdown(f"**Friday, October 10, 2025 | 12:16 PM IST**")
         st.info("Here are your AI-powered priorities for today to maximize efficiency and results.", icon="🚀")
         model = st.session_state.model; model_columns = st.session_state.model_columns
         unsubscribed_df = self.df[self.df['y'] == 'no'].copy()
@@ -134,19 +134,6 @@ class FinanSageApp:
                 if prediction_proba > 0.5: st.success("HIGH-potential lead. Recommend contacting soon.")
                 else: st.warning("LOW-potential lead. Nurture with general offers.")
 
-    def page_lead_finder(self):
-        st.header("🎯 AI Lead Finder")
-        st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit.")
-        model = st.session_state.model; model_columns = st.session_state.model_columns
-        unsubscribed_df = self.df[self.df['y'] == 'no'].copy()
-        leads_to_predict = unsubscribed_df[model_columns]
-        predictions = model.predict_proba(leads_to_predict)[:, 1]
-        unsubscribed_df['Subscription Likelihood'] = predictions
-        prioritized_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False)
-        st.dataframe(prioritized_leads[['FirstName', 'LastName', 'MobileNumber', 'age', 'job', 'balance', 'Subscription Likelihood']],
-                     use_container_width=True,
-                     column_config={"Subscription Likelihood": st.column_config.ProgressColumn("Likelihood", format="%.2f", min_value=0, max_value=1)})
-
     def page_bank_offers(self):
         st.header("✨ Festive Offers for Diwali 2025 ✨")
         offers = [
@@ -163,21 +150,23 @@ class FinanSageApp:
         current_mode = st.session_state.get('current_mode', 'normal')
         
         mode_details = {
-            'commute': {"icon": "🚗", "title": "Your Morning Dash"}, 'lunch': {"icon": "🥗", "title": "Your Lunch Money Roundup"},
-            'evening': {"icon": "🌆", "title": "Your Evening Planner"}, 'zen': {"icon": "🧘", "title": "Your Zen Finance View"}
+            'commute': {"icon": "🚗", "title": "Your Morning Dash"}, 'lunch': {"icon": "🥗", "title": "Your Lunch Mobile Check"},
+            'evening': {"icon": "🌆", "title": "Your Evening Commute"}, 'zen': {"icon": "🧘", "title": "Midnight Anxiety Check"}
         }
-        if current_mode in mode_details and current_mode != 'zen':
+        if current_mode in mode_details:
             st.subheader(f"{mode_details[current_mode]['icon']} {mode_details[current_mode]['title']}")
-            with st.container(border=True):
-                if current_mode == 'commute':
+            if current_mode == 'commute':
+                with st.container(border=True):
                     total_balance = sum(st.session_state.accounts.values())
                     st.metric("Total Account Balance", f"₹{total_balance:,.0f}")
                     st.info("**Tip of the Day:** Even small, consistent investments can lead to significant wealth.", icon="💡")
-                elif current_mode == 'lunch':
-                    st.write("**1-Minute Challenge:** Can you name the 3 main types of mutual funds?")
-                    st.info("**Quick Tip:** Paying your credit card bill in full is the best way to boost your credit score.", icon="💡")
-                elif current_mode == 'evening':
-                    st.write("A great time to plan for tomorrow. Have you checked your Algo Bot goals?"); st.success("**Featured Read:** [Article] 5 Common Mistakes to Avoid When Investing", icon="📖")
+                st.subheader("🎧 Listen on the Go")
+                for item in [{"icon": "📈", "title": "Daily Market Update"}, {"icon": "💰", "title": "Building Your First Crore"}]:
+                    with st.container(border=True): st.markdown(f"**{item['icon']} {item['title']}**")
+            elif current_mode == 'lunch':
+                with st.container(border=True): st.write("**1-Minute Challenge:** Can you name the 3 main types of mutual funds?"); st.info("**Quick Tip:** Paying your credit card bill in full is the best way to boost your credit score.", icon="💡")
+            elif current_mode == 'evening':
+                with st.container(border=True): st.write("A great time to plan for tomorrow. Have you checked your Algo Bot goals?"); st.success("**Featured Read:** [Article] 5 Common Mistakes to Avoid When Investing", icon="📖")
         
         st.subheader("Your Account Details")
         col1, col2 = st.columns(2)
@@ -203,7 +192,7 @@ class FinanSageApp:
                         if st.form_submit_button("Send via UPI"):
                             if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
                             else:
-                                st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount}
+                                st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%Y-%m-%d, %I:%M %p'), "Description": f"UPI to {recipient_upi_id}", "Amount (₹)": -amount}
                                 st.session_state.transactions.insert(0, new_tx); st.toast(f"✅ ₹{amount} sent to {recipient_upi_id}!", icon="🎉"); st.rerun()
             with col2:
                 with st.expander("🏦 Within-Bank Transfer"):
@@ -215,7 +204,7 @@ class FinanSageApp:
                         if st.form_submit_button("Transfer Money"):
                             if amount > st.session_state.accounts[debit_account]: st.error("Insufficient balance.")
                             else:
-                                st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now().strftime('%Y-%m-%d, %I:%M %p'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount}
+                                st.session_state.accounts[debit_account] -= amount; new_tx = {"Date": datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%Y-%m-%d, %I:%M %p'), "Description": f"Transfer to {recipient_name}", "Amount (₹)": -amount}
                                 st.session_state.transactions.insert(0, new_tx); st.toast(f"✅ ₹{amount} transferred to {recipient_name}!", icon="🎉"); st.rerun()
         st.markdown("---")
         st.subheader("Recent Transactions")
@@ -302,7 +291,7 @@ class FinanSageApp:
         st.title(f"👤 Customer Portal")
         ist_time = datetime.now(timezone(timedelta(hours=5, minutes=30)))
         current_hour = ist_time.hour
-        mode_names = {'commute': "🚗 Morning Dash", 'lunch': "🥗 Lunch Money", 'evening': "🌆 Evening Planner", 'zen': "🧘 Zen Finance", 'normal': "Normal Mode"}
+        mode_names = {'commute': "🚗 Morning Dash", 'lunch': "🥗 Lunch Mobile Check", 'evening': "🌆 Evening Commute", 'zen': "🧘 Midnight Anxiety Check", 'normal': "Normal Mode"}
         if 7 <= current_hour < 12: new_mode = 'commute'
         elif 12 <= current_hour < 15: new_mode = 'lunch'
         elif 17 <= current_hour < 20: new_mode = 'evening'
@@ -324,7 +313,7 @@ class FinanSageApp:
             selection = st.radio("Go to", ["🏠 Account Summary", "🤖 Algo Savings", "💳 Cards & Loans", "💹 Investment Hub", "🧮 Financial Calculators", "❤️ Financial Health"])
             st.markdown("---")
             st.session_state.zen_mode = (st.session_state.current_mode == 'zen')
-            if st.toggle('🧘 Zen Mode', value=st.session_state.zen_mode, help="Hide balances for a stress-free experience."): st.session_state.current_mode = 'zen'
+            if st.toggle('🧘 Anxiety Check Mode', value=st.session_state.zen_mode, help="Hide balances and disable transactions for a stress-free experience."): st.session_state.current_mode = 'zen'
             st.markdown("---")
             if st.button("Logout"):
                 for key in list(st.session_state.keys()): del st.session_state[key]
