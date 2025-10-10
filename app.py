@@ -67,10 +67,9 @@ class FinanSageApp:
     # --- Employee Portal Pages ---
     def page_ai_copilot(self):
         st.header("🤖 AI Co-Pilot")
-        st.markdown(f"**Friday, October 10, 2025 | 11:52 AM IST**")
+        st.markdown(f"**Friday, October 10, 2025 | 12:14 PM IST**")
         st.info("Here are your AI-powered priorities for today to maximize efficiency and results.", icon="🚀")
-        model = st.session_state.model
-        model_columns = st.session_state.model_columns
+        model = st.session_state.model; model_columns = st.session_state.model_columns
         unsubscribed_df = self.df[self.df['y'] == 'no'].copy()
         leads_to_predict = unsubscribed_df[model_columns]
         predictions = model.predict_proba(leads_to_predict)[:, 1]
@@ -153,8 +152,6 @@ class FinanSageApp:
         offers = [
             {"title": "Dhanteras Gold Rush", "icon": "🪙", "rate": "Instant 5% Cashback", "benefit": "On Gold Jewellery & Coin Loans", "description": "Celebrate Dhanteras with a personal loan for gold purchases with zero processing fees and 5% cashback on the loan amount."},
             {"title": "Diwali Wheels of Joy", "icon": "🚗", "rate": "Starting at 8.25%", "benefit": "Zero Down Payment on Car Loans", "description": "Our special car loan offer comes with a rock-bottom interest rate and a zero down payment option for approved customers."},
-            {"title": "Festive Home Makeover Loan", "icon": "🏡", "rate": "Attractive Low Interest", "benefit": "Quick Personal Loan for Renovations", "description": "Get a quick-disbursal personal loan up to ₹5 Lakhs for home improvements, painting, or buying new appliances."},
-            {"title": "Diwali Dhamaka FD", "icon": "💰", "rate": "8.00% p.a.", "benefit": "Special High-Interest Fixed Deposit", "description": "A limited-period Fixed Deposit scheme offering a special high interest rate. Senior citizens get an additional 0.5%!"}
         ]
         for offer in offers:
             st.markdown(f'<div class="offer-card"><h3>{offer["icon"]} {offer["title"]}</h3><p><strong>Key Benefit:</strong> <span style="color: #E67E22; font-weight: bold;">{offer["benefit"]}</span> | <strong>Offer Details:</strong> {offer["rate"]}</p><p>{offer["description"]}</p></div>', unsafe_allow_html=True)
@@ -189,7 +186,7 @@ class FinanSageApp:
         
         st.subheader("Account Balances")
         if current_mode == 'zen':
-            st.info("🧘 Zen Mode is active. Balances are hidden. Quick actions are disabled.", icon="✨")
+            st.info("🧘 Balances are hidden. Quick actions are disabled to promote a stress-free experience.", icon="✨")
             cols = st.columns(len(st.session_state.accounts)); affirmations = ["You're on track!", "Your savings are growing."]
             for i, acc_name in enumerate(st.session_state.accounts.keys()): cols[i].metric(acc_name, affirmations[i % len(affirmations)])
         else:
@@ -232,14 +229,11 @@ class FinanSageApp:
         st.session_state.username = customer_data['FirstName']
         if customer_data['job'] == 'student': st.session_state.accounts = {"Savings": customer_data['balance']}
         else: st.session_state.accounts = {"Checking": customer_data['balance'] * 0.4, "Savings": customer_data['balance'] * 0.6}
-        st.session_state.transactions = [
-            {"Date": (datetime.now() - timedelta(days=1)).strftime('Yesterday, %I:%M %p'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"},
-            {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d, %I:%M %p'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"},
-        ]
+        st.session_state.transactions = [{"Date": (datetime.now() - timedelta(days=1)).strftime('Yesterday, %I:%M %p'), "Description": "Supermarket", "Amount (₹)": -5210.50, "Category": "Groceries"}, {"Date": (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d, %I:%M %p'), "Description": "Salary Credit", "Amount (₹)": 75000.00, "Category": "Income"}]
         st.session_state.bots = {"round_up": False, "smart_transfer": False, "round_up_pot": 0.0, "round_up_value": 0.0}
         st.session_state.goals = []
         st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
-        st.session_state.notifications = [f"Welcome back, {customer_data['FirstName']}! Your last login was yesterday."]
+        st.session_state.notifications = [f"Welcome back, {customer_data['FirstName']}!"]
         st.session_state.last_known_mode = None
     
     # --- Login & Portal Logic ---
