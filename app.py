@@ -67,7 +67,7 @@ class FinanSageApp:
     # --- Employee Portal Pages ---
     def page_ai_copilot(self):
         st.header("🤖 AI Co-Pilot")
-        st.markdown(f"**Friday, October 10, 2025 | 12:16 PM IST**")
+        st.markdown(f"**Friday, October 10, 2025 | 12:18 PM IST**")
         st.info("Here are your AI-powered priorities for today to maximize efficiency and results.", icon="🚀")
         model = st.session_state.model; model_columns = st.session_state.model_columns
         unsubscribed_df = self.df[self.df['y'] == 'no'].copy()
@@ -134,6 +134,19 @@ class FinanSageApp:
                 if prediction_proba > 0.5: st.success("HIGH-potential lead. Recommend contacting soon.")
                 else: st.warning("LOW-potential lead. Nurture with general offers.")
 
+    def page_lead_finder(self):
+        st.header("🎯 AI Lead Finder")
+        st.markdown("A prioritized list of customers with the highest potential to subscribe to a term deposit.")
+        model = st.session_state.model; model_columns = st.session_state.model_columns
+        unsubscribed_df = self.df[self.df['y'] == 'no'].copy()
+        leads_to_predict = unsubscribed_df[model_columns]
+        predictions = model.predict_proba(leads_to_predict)[:, 1]
+        unsubscribed_df['Subscription Likelihood'] = predictions
+        prioritized_leads = unsubscribed_df.sort_values(by='Subscription Likelihood', ascending=False)
+        st.dataframe(prioritized_leads[['FirstName', 'LastName', 'MobileNumber', 'age', 'job', 'balance', 'Subscription Likelihood']],
+                     use_container_width=True,
+                     column_config={"Subscription Likelihood": st.column_config.ProgressColumn("Likelihood", format="%.2f", min_value=0, max_value=1)})
+
     def page_bank_offers(self):
         st.header("✨ Festive Offers for Diwali 2025 ✨")
         offers = [
@@ -150,23 +163,21 @@ class FinanSageApp:
         current_mode = st.session_state.get('current_mode', 'normal')
         
         mode_details = {
-            'commute': {"icon": "🚗", "title": "Your Morning Dash"}, 'lunch': {"icon": "🥗", "title": "Your Lunch Mobile Check"},
-            'evening': {"icon": "🌆", "title": "Your Evening Commute"}, 'zen': {"icon": "🧘", "title": "Midnight Anxiety Check"}
+            'commute': {"icon": "🚗", "title": "Your Morning Dash"}, 'lunch': {"icon": "🥗", "title": "Your Lunch Money Roundup"},
+            'evening': {"icon": "🌆", "title": "Your Evening Planner"}, 'zen': {"icon": "🧘", "title": "Midnight Anxiety Check"}
         }
-        if current_mode in mode_details:
+        if current_mode in mode_details and current_mode != 'zen':
             st.subheader(f"{mode_details[current_mode]['icon']} {mode_details[current_mode]['title']}")
-            if current_mode == 'commute':
-                with st.container(border=True):
+            with st.container(border=True):
+                if current_mode == 'commute':
                     total_balance = sum(st.session_state.accounts.values())
                     st.metric("Total Account Balance", f"₹{total_balance:,.0f}")
                     st.info("**Tip of the Day:** Even small, consistent investments can lead to significant wealth.", icon="💡")
-                st.subheader("🎧 Listen on the Go")
-                for item in [{"icon": "📈", "title": "Daily Market Update"}, {"icon": "💰", "title": "Building Your First Crore"}]:
-                    with st.container(border=True): st.markdown(f"**{item['icon']} {item['title']}**")
-            elif current_mode == 'lunch':
-                with st.container(border=True): st.write("**1-Minute Challenge:** Can you name the 3 main types of mutual funds?"); st.info("**Quick Tip:** Paying your credit card bill in full is the best way to boost your credit score.", icon="💡")
-            elif current_mode == 'evening':
-                with st.container(border=True): st.write("A great time to plan for tomorrow. Have you checked your Algo Bot goals?"); st.success("**Featured Read:** [Article] 5 Common Mistakes to Avoid When Investing", icon="📖")
+                elif current_mode == 'lunch':
+                    st.write("**1-Minute Challenge:** Can you name the 3 main types of mutual funds?")
+                    st.info("**Quick Tip:** Paying your credit card bill in full is the best way to boost your credit score.", icon="💡")
+                elif current_mode == 'evening':
+                    st.write("A great time to plan for tomorrow. Have you checked your Algo Bot goals?"); st.success("**Featured Read:** [Article] 5 Common Mistakes to Avoid When Investing", icon="📖")
         
         st.subheader("Your Account Details")
         col1, col2 = st.columns(2)
@@ -210,6 +221,145 @@ class FinanSageApp:
         st.subheader("Recent Transactions")
         st.dataframe(pd.DataFrame(st.session_state.transactions), use_container_width=True)
 
+    def page_algo_bots(self):
+        st.header("🤖 Algo Savings & Investment Bots")
+        st.markdown("Automate your finances with our smart bots. Activate them once and watch your wealth grow.")
+        st.subheader("My Bot Portfolio")
+        with st.container(border=True):
+            total_invested = st.session_state.bots['round_up_pot'] + sum(g['invested'] for g in st.session_state.goals)
+            total_value = st.session_state.bots['round_up_value'] + sum(g['value'] for g in st.session_state.goals)
+            col1, col2 = st.columns(2)
+            col1.metric("Total Amount Invested", f"₹{total_invested:,.2f}"); col2.metric("Current Portfolio Value", f"₹{total_value:,.2f}")
+            if st.button("Simulate 1 Month of Investing"):
+                st.session_state.bots['round_up_pot'] += random.uniform(150, 400); st.session_state.bots['round_up_value'] = st.session_state.bots['round_up_pot'] * random.uniform(1.01, 1.03)
+                for goal in st.session_state.goals: goal['invested'] += goal['sip']; goal['value'] += goal['sip'] * random.uniform(1.0, 1.05)
+                st.toast("Simulated one month of automated investing!", icon="📈"); st.rerun()
+            st.markdown("---")
+            if st.session_state.bots['round_up']: st.write(f"💰 **Round-Up Savings (Liquid Fund):** Current Value **₹{st.session_state.bots['round_up_value']:,.2f}**")
+            for goal in st.session_state.goals:
+                progress = min(goal['value'] / goal['target'], 1.0) if goal['target'] > 0 else 0
+                st.write(f"🎯 **Goal: {goal['name']}** - Current Value **₹{goal['value']:,.2f}** / ₹{goal['target']:,}"); st.progress(progress)
+        st.markdown("---")
+        st.subheader("Activate & Manage Bots")
+        with st.container(border=True):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.subheader("💰 Round-Up Savings Bot"); st.write("Automatically rounds up your daily spends and invests the change.")
+                is_active = st.session_state.bots["round_up"]
+                if is_active:
+                    if st.button("Deactivate Round-Up Bot"): st.session_state.bots["round_up"] = False; st.toast("Round-Up Bot deactivated.", icon="⏸️"); st.rerun()
+                else:
+                    if st.button("Activate Round-Up Bot"): st.session_state.bots["round_up"] = True; st.toast("Round-Up Bot activated!", icon="🚀"); st.rerun()
+            with col2:
+                st.write(""); st.write("")
+                if is_active: st.success("✅ ACTIVE")
+                else: st.info("INACTIVE")
+        with st.container(border=True):
+            st.subheader("🎯 Goal-Based SIP Bot"); st.write("Define your financial goals, and this bot will calculate the required SIP and help you start.")
+            goal = st.text_input("What is your financial goal?", "iPhone 17 Pro")
+            target_amount = st.number_input("Target Amount (₹)", min_value=10000, value=180000)
+            target_year = st.slider("Target Year", datetime.now().year + 1, datetime.now().year + 10, datetime.now().year + 2)
+            years_to_go = target_year - datetime.now().year
+            monthly_sip = (target_amount * (0.12/12)) / (((1 + 0.12/12)**(years_to_go*12)) - 1) if years_to_go > 0 else target_amount / 12
+            col1, col2 = st.columns([2,1])
+            with col1: st.metric(f"Required Monthly SIP for '{goal}'", f"₹{monthly_sip:,.0f}")
+            with col2:
+                if st.button("🚀 Start this SIP Plan", use_container_width=True):
+                    new_goal = {"name": goal, "target": target_amount, "sip": monthly_sip, "invested": 0, "value": 0}
+                    st.session_state.goals.append(new_goal); st.success(f"Your SIP for '{goal}' is now active!"); st.balloons(); st.rerun()
+    
+    def page_cards_and_loans(self):
+        st.header("💳 Cards & Loans"); st.subheader("Your Credit Card Summary")
+        card = st.session_state.card_details
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Credit Limit", f"₹{card['limit']:,.2f}"); col2.metric("Outstanding Amount", f"₹{card['outstanding']:,.2f}")
+        utilization = (card['outstanding'] / card['limit']) if card['limit'] > 0 else 0
+        col3.metric("Credit Utilization", f"{utilization:.1%}"); st.progress(utilization)
+        if card['outstanding'] > 0.01:
+            with st.form("card_payment_form"):
+                st.subheader("Make a Card Payment")
+                payment_amount = st.number_input("Amount to Pay (₹)", min_value=0.01, max_value=card['outstanding'], value=card['outstanding'])
+                payment_account = st.selectbox("Pay from Account", list(st.session_state.accounts.keys()))
+                if st.form_submit_button("Pay Credit Card Bill"):
+                    if payment_amount > st.session_state.accounts[payment_account]: st.error("Insufficient balance.")
+                    else:
+                        st.session_state.accounts[payment_account] -= payment_amount; st.session_state.card_details['outstanding'] -= payment_amount
+                        new_tx = {"Date": datetime.now().strftime('%Y-%m-%d'), "Description": "Credit Card Bill Payment", "Amount (₹)": -payment_amount, "Category": "Bills"}
+                        st.session_state.transactions.insert(0, new_tx); st.toast("✅ Card payment successful!", icon="💳"); st.rerun()
+        else: st.success("🎉 Your credit card bill is fully paid!")
+
+    def page_investments(self):
+        st.header("💹 Investment Hub")
+        mf_data = [{"name": "Parag Parikh Flexi Cap Fund", "category": "Flexi Cap", "risk": "Moderately High", "desc": "A popular choice for its diversified portfolio across domestic and international equities."}, {"name": "SBI Contra ESG Fund", "category": "Thematic - ESG", "risk": "High", "desc": "Invests in companies with strong Environmental, Social, and Governance (ESG) scores, following a contrarian strategy."}, {"name": "Quant Small Cap Fund", "category": "Small Cap", "risk": "Very High", "desc": "Known for its aggressive, high-growth strategy in the small-cap segment, suitable for high-risk investors."}]
+        etf_data = [{"name": "Nifty 50 BEES ETF", "category": "Index", "risk": "Moderate", "desc": "Tracks the Nifty 50 index, offering a simple, low-cost way to invest in India's top companies."}, {"name": "Mirae Asset Nifty EV & New Age Automotive ETF", "category": "Thematic", "risk": "High", "desc": "Provides exposure to the rapidly growing Electric Vehicle and new-age automotive technology sectors."}, {"name": "ICICI Prudential Silver ETF", "category": "Commodity", "risk": "High", "desc": "Invests in physical silver, offering a hedge against inflation and a play on industrial demand."}]
+        tab1, tab2 = st.tabs(["Mutual Funds (SIP)", "Exchange-Traded Funds (ETFs)"])
+        with tab1:
+            st.subheader("Top Mutual Funds for SIP in 2025")
+            for mf in mf_data:
+                with st.container(border=True): st.markdown(f"**{mf['name']}**\n\n*{mf['category']}* | **Risk:** `{mf['risk']}`\n\n{mf['desc']}")
+        with tab2:
+            st.subheader("Top ETFs to Buy in 2025")
+            for etf in etf_data:
+                with st.container(border=True): st.markdown(f"**{etf['name']}**\n\n*{etf['category']}* | **Risk:** `{etf['risk']}`\n\n{etf['desc']}")
+
+    def page_calculators(self):
+        st.header("🧮 Financial Calculators")
+        tab1, tab2, tab3 = st.tabs(["SIP Calculator", "Loan EMI Calculator", "Retirement Planner"])
+        with tab1:
+            st.subheader("Systematic Investment Plan (SIP) Calculator")
+            monthly_investment = st.slider("Monthly Investment (₹)", 1000, 100000, 5000, key="sip_inv")
+            expected_return = st.slider("Expected Annual Return (%)", 1.0, 30.0, 12.0, 0.5, key="sip_ret")
+            investment_period = st.slider("Investment Period (Years)", 1, 30, 10, key="sip_yrs")
+            invested_amount = monthly_investment * investment_period * 12
+            i = (expected_return / 100) / 12; n = investment_period * 12
+            future_value = monthly_investment * (((1 + i)**n - 1) / i) * (1 + i)
+            col1, col2 = st.columns(2)
+            col1.metric("Total Invested Amount", f"₹{invested_amount:,.0f}"); col2.metric("Projected Future Value", f"₹{future_value:,.0f}")
+        with tab2:
+            st.subheader("Equated Monthly Instalment (EMI) Calculator")
+            loan_amount = st.number_input("Loan Amount (₹)", 10000, 10000000, 500000)
+            interest_rate = st.slider("Annual Interest Rate (%)", 1.0, 20.0, 8.5, 0.1)
+            loan_tenure = st.slider("Loan Tenure (Years)", 1, 30, 5)
+            r = (interest_rate / 100) / 12; n = loan_tenure * 12
+            emi = (loan_amount * r * (1 + r)**n) / ((1 + r)**n - 1); total_payment = emi * n
+            col1, col2 = st.columns(2)
+            col1.metric("Monthly EMI Payment", f"₹{emi:,.2f}"); col2.metric("Total Payment", f"₹{total_payment:,.0f}")
+        with tab3:
+            st.subheader("Retirement Corpus Planner")
+            current_age = st.slider("Your Current Age", 18, 60, 30); retirement_age = st.slider("Target Retirement Age", 50, 70, 60)
+            monthly_expenses = st.number_input("Current Monthly Expenses (₹)", 5000, 200000, 30000)
+            expected_inflation = st.slider("Expected Inflation Rate (%)", 1.0, 10.0, 6.0, 0.5)
+            years_to_retire = retirement_age - current_age
+            future_monthly_expenses = monthly_expenses * (1 + expected_inflation / 100)**years_to_retire
+            retirement_corpus = future_monthly_expenses * 12 * 25
+            st.metric("Estimated Retirement Corpus Needed", f"₹{retirement_corpus:,.0f}")
+
+    def page_financial_health(self):
+        st.header("❤️ Automatic Financial Health Analysis")
+        st.markdown("Our AI automatically analyzes your profile to generate your financial health score and personalized recommendations.")
+        customer_data = st.session_state.customer_data; score = 0; pro_tips = []
+        balance = sum(st.session_state.accounts.values())
+        if balance > 500000: score += 40; pro_tips.append("Your savings are excellent! Consider moving surplus cash to investments for better growth.")
+        elif balance > 200000: score += 30; pro_tips.append("You have a good savings base. It's a great time to start a goal-based SIP.")
+        else: score += 10; pro_tips.append("Your top priority should be to build a consistent saving habit. Start with a small recurring deposit.")
+        if customer_data['loan'] == 'no' and customer_data['housing'] == 'no': score += 30
+        else: score += 15; pro_tips.append("You are managing your loans well. Ensure you are paying your EMIs on time to maintain a good credit score.")
+        if any(goal['invested'] > 0 for goal in st.session_state.goals) or st.session_state.bots['round_up_pot'] > 0: score += 30
+        else: score += 10; pro_tips.append("You have not yet started investing. Activate our 'Algo Savings' bots to begin your investment journey with small, automated steps.")
+        st.subheader("Your Financial Health Score")
+        col1, col2 = st.columns([1,2])
+        with col1:
+            st.metric("Score", f"{score:.0f} / 100")
+            if score > 80: st.success("Status: Excellent")
+            elif score > 50: st.warning("Status: Good")
+            else: st.error("Status: Needs Attention")
+        with col2:
+            if score > 80: st.markdown(f'<div style="width: 100%; background-color: #ddd; border-radius: 10px;"><div style="width: {score}%; background-color: #28a745; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+            elif score > 50: st.markdown(f'<div style="width: 100%; background-color: #ffc107; text-align: right; color: black; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+            else: st.markdown(f'<div style="width: 100%; background-color: #dc3545; text-align: right; color: white; padding:5px; border-radius: 10px;"><b>{score}%</b></div></div>', unsafe_allow_html=True)
+        st.markdown("---"); st.subheader("💡 AI-Powered Pro-Tips")
+        for tip in pro_tips[:3]: st.info(tip, icon="🧠")
+
     # --- Centralized Session State Initialization ---
     def initialize_customer_session(self, customer_data):
         st.session_state.logged_in = True
@@ -224,7 +374,7 @@ class FinanSageApp:
         st.session_state.card_details = { "limit": 150000, "outstanding": 25800.50 }
         st.session_state.notifications = [f"Welcome back, {customer_data['FirstName']}!"]
         st.session_state.last_known_mode = None
-    
+
     # --- Login & Portal Logic ---
     def show_login_page(self):
         st.markdown("<h1 style='text-align: center;'>🔐 FinanSage AI Portal</h1>", unsafe_allow_html=True)
@@ -291,7 +441,7 @@ class FinanSageApp:
         st.title(f"👤 Customer Portal")
         ist_time = datetime.now(timezone(timedelta(hours=5, minutes=30)))
         current_hour = ist_time.hour
-        mode_names = {'commute': "🚗 Morning Dash", 'lunch': "🥗 Lunch Mobile Check", 'evening': "🌆 Evening Commute", 'zen': "🧘 Midnight Anxiety Check", 'normal': "Normal Mode"}
+        mode_names = {'commute': "🚗 Morning Dash", 'lunch': "🥗 Lunch Money", 'evening': "🌆 Evening Planner", 'zen': "🧘 Midnight Anxiety Check", 'normal': "Normal Mode"}
         if 7 <= current_hour < 12: new_mode = 'commute'
         elif 12 <= current_hour < 15: new_mode = 'lunch'
         elif 17 <= current_hour < 20: new_mode = 'evening'
